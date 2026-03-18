@@ -1,17 +1,27 @@
-# desired_wash
+# 🫧 DesireWash – Laundry Pickup & Delivery App
 
-A new Flutter project.
+A beautifully designed Flutter app for on-demand laundry pickup and delivery, featuring a warm, cozy pastel aesthetic.
 
-## Getting Started
+## Screens
 
-This project is a starting point for a Flutter application.
+- **Home / Dashboard** – Active order banner, services grid, promo banner, recent orders
+- **Order / Schedule Pickup** – Service selector, date & time picker, address card, confirm CTA
+- **Track Order** – Live timeline, progress bar, rider info & call button
+- **Profile & History** – User stats, order history, account settings
 
-A few resources to get you started if this is your first Flutter project:
+## Design Highlights
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Warm pastel palette: coral, peach, soft blue, mint green, lavender
+- Animated bottom nav with pill indicator
+- Smooth animated state transitions (service/date/time selectors)
+- Card-based layout with soft shadows
+- Gradient hero cards
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Running the App
+
+```bash
+flutter pub get
+flutter run
+```
+
+Requires Flutter 3.x and Dart 3.x.
