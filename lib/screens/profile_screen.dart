@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/shared_widgets.dart';
+import '../providers/auth_provider.dart';
+import '../providers/order_provider.dart';
+import '../models/order.dart';
+import '../services/api_service.dart';
+import 'zone/zone_picker_screen.dart';
+import 'wallet/wallet_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _savingZone = false;
+
+  @override
   Widget build(BuildContext context) {
+    final auth  = context.watch<AuthProvider>();
+    final orders = context.watch<OrderProvider>();
+    final user  = auth.user;
+
+    final initials = user != null
+        ? user.name.trim().split(' ')
+            .where((w) => w.isNotEmpty)
+            .take(2)
+            .map((w) => w[0].toUpperCase())
+            .join()
+        : 'U';
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
@@ -19,11 +45,12 @@ class ProfileScreen extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: AppColors.darkText)),
             const SizedBox(height: 24),
-            _buildProfileHeader(),
+            _buildProfileHeader(user?.name ?? 'Guest',
+                user?.phone ?? '', initials, user?.walletBalance ?? 0),
             const SizedBox(height: 28),
-            _buildOrderHistory(),
+            _buildOrderHistory(context, orders),
             const SizedBox(height: 28),
-            _buildAccountSettings(),
+            _buildAccountSettings(context, auth),
             const SizedBox(height: 32),
           ],
         ),
@@ -31,7 +58,10 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
+  // ── Profile header ──────────────────────────────────────────────────────────
+
+  Widget _buildProfileHeader(
+      String name, String phone, String initials, double walletBalance) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -51,9 +81,9 @@ class ProfileScreen extends StatelessWidget {
               color: AppColors.lavender,
               shape: BoxShape.circle,
             ),
-            child: const Center(
-              child: Text('SJ',
-                  style: TextStyle(
+            child: Center(
+              child: Text(initials,
+                  style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF7B5EA7),
                       fontSize: 22)),
@@ -64,18 +94,18 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Sarah Johnson',
-                    style: TextStyle(
+                Text(name,
+                    style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: AppColors.darkText)),
                 const SizedBox(height: 4),
-                Text('+234 812 345 6789',
+                Text(phone.isNotEmpty ? phone : 'No phone set',
                     style: TextStyle(fontSize: 13, color: AppColors.warmGray)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    StatBadge('12', 'Orders'),
+                    StatBadge('₦${_fmt(walletBalance)}', 'Wallet'),
                     const SizedBox(width: 10),
                     StatBadge('4.8★', 'Rating'),
                   ],
@@ -88,7 +118,14 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderHistory() {
+  String _fmt(double v) {
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
+    return v.toStringAsFixed(0);
+  }
+
+  // ── Order history ───────────────────────────────────────────────────────────
+
+  Widget _buildOrderHistory(BuildContext context, OrderProvider orders) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -98,19 +135,63 @@ class ProfileScreen extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 color: AppColors.darkText)),
         const SizedBox(height: 14),
-        HistoryCard('#BUB-2831', 'Wash & Fold', 'Feb 20', '₦4,500', 'Delivered',
-            AppColors.mintGreen),
-        const SizedBox(height: 10),
-        HistoryCard('#BUB-2819', 'Dry Clean • 2 items', 'Feb 15', '₦6,000',
-            'Delivered', AppColors.mintGreen),
-        const SizedBox(height: 10),
-        HistoryCard('#BUB-2801', 'Iron Only • 5 items', 'Feb 8', '₦4,000',
-            'Delivered', AppColors.mintGreen),
+
+        if (orders.loading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(color: AppColors.coral),
+            ),
+          )
+        else if (orders.orders.isEmpty)
+          Text('No orders yet — schedule your first pickup!',
+              style: TextStyle(fontSize: 13, color: AppColors.warmGray))
+        else
+          ...orders.orders.take(3).map((o) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: HistoryCard(
+                  '#${o.id.substring(0, 8).toUpperCase()}',
+                  o.items.isNotEmpty ? o.items.first.serviceName : 'Laundry',
+                  '${o.scheduledPickupDate.day} ${_month(o.scheduledPickupDate.month)}',
+                  '₦${_fmtFull(o.total)}',
+                  _statusLabel(o.status),
+                  _statusColor(o.status),
+                ),
+              )),
       ],
     );
   }
 
-  Widget _buildAccountSettings() {
+  String _statusLabel(OrderStatus s) {
+    switch (s) {
+      case OrderStatus.delivered:  return 'Delivered';
+      case OrderStatus.cancelled:  return 'Cancelled';
+      case OrderStatus.pending:    return 'Pending';
+      case OrderStatus.confirmed:  return 'Confirmed';
+      default:                     return 'In Progress';
+    }
+  }
+
+  Color _statusColor(OrderStatus s) {
+    switch (s) {
+      case OrderStatus.delivered:  return AppColors.mintGreen;
+      case OrderStatus.cancelled:  return AppColors.warmGray;
+      default:                     return AppColors.coral;
+    }
+  }
+
+  String _fmtFull(double v) =>
+      v.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  String _month(int m) => const [
+    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ][m];
+
+  // ── Account settings ────────────────────────────────────────────────────────
+
+  Widget _buildAccountSettings(BuildContext context, AuthProvider auth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -133,11 +214,29 @@ class ProfileScreen extends StatelessWidget {
           ),
           child: Column(
             children: [
-              SettingRow(Icons.location_on_rounded, 'Saved Addresses',
-                  AppColors.coral),
+              // Saved Addresses → Zone picker
+              GestureDetector(
+                onTap: () => _changeZone(context, auth),
+                child: SettingRow(
+                  Icons.location_on_rounded,
+                  _savingZone
+                      ? 'Saving…'
+                      : (auth.user?.zoneName != null
+                          ? 'Area: ${auth.user!.zoneName}'
+                          : 'Set Your Area'),
+                  AppColors.coral,
+                ),
+              ),
               CardDivider(),
-              SettingRow(
-                  Icons.payment_rounded, 'Payment Methods', AppColors.softBlue),
+              // Wallet
+              GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const WalletScreen())),
+                child: SettingRow(
+                    Icons.account_balance_wallet_rounded,
+                    'Wallet & Payments',
+                    AppColors.softBlue),
+              ),
               CardDivider(),
               SettingRow(Icons.notifications_rounded, 'Notifications',
                   AppColors.peach),
@@ -145,17 +244,69 @@ class ProfileScreen extends StatelessWidget {
               SettingRow(
                   Icons.help_rounded, 'Help & Support', AppColors.lavender),
               CardDivider(),
-              SettingRow(
-                  Icons.logout_rounded, 'Sign Out', const Color(0xFFFFD0D0)),
+              // Sign Out
+              GestureDetector(
+                onTap: () => _signOut(context, auth),
+                child: SettingRow(Icons.logout_rounded, 'Sign Out',
+                    const Color(0xFFFFD0D0)),
+              ),
             ],
           ),
         ),
       ],
     );
   }
+
+  Future<void> _changeZone(BuildContext context, AuthProvider auth) async {
+    final zone = await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                ZonePickerScreen(currentZoneId: auth.user?.zoneId)));
+    if (zone == null || !mounted) return;
+
+    setState(() => _savingZone = true);
+    try {
+      final updated =
+          await context.read<ApiService>().updateProfile(zoneId: zone.id);
+      auth.updateLocalUser(updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save area: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingZone = false);
+    }
+  }
+
+  Future<void> _signOut(BuildContext context, AuthProvider auth) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Sign out?',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text('You will need to log in again to place orders.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sign Out',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      await auth.logout();
+      // _AppGate watches auth state and will redirect to WelcomeScreen
+    }
+  }
 }
 
-// ── Stat Badge ────────────────────────────────────────────────────────────────
+// ── Stat Badge — unchanged ─────────────────────────────────────────────────────
 class StatBadge extends StatelessWidget {
   final String value, label;
   const StatBadge(this.value, this.label, {super.key});
@@ -187,7 +338,7 @@ class StatBadge extends StatelessWidget {
   }
 }
 
-// ── History Card ──────────────────────────────────────────────────────────────
+// ── History Card — unchanged ───────────────────────────────────────────────────
 class HistoryCard extends StatelessWidget {
   final String id, service, date, price, status;
   final Color statusColor;
@@ -247,7 +398,8 @@ class HistoryCard extends StatelessWidget {
                       color: AppColors.darkText)),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(8),
@@ -266,7 +418,7 @@ class HistoryCard extends StatelessWidget {
   }
 }
 
-// ── Setting Row ───────────────────────────────────────────────────────────────
+// ── Setting Row — unchanged ────────────────────────────────────────────────────
 class SettingRow extends StatelessWidget {
   final IconData icon;
   final String label;

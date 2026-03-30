@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/shared_widgets.dart';
+import '../providers/auth_provider.dart';
+import 'pickup/schedule_pickup_screen.dart';
+
+// OrderScreen is the "Order" tab in the bottom nav.
+// It now acts as a launcher to the full SchedulePickupScreen,
+// while keeping the original UI design intact as the entry point.
 
 class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
@@ -11,26 +18,18 @@ class OrderScreen extends StatefulWidget {
 
 class _OrderScreenState extends State<OrderScreen> {
   int _selectedService = 0;
-  String _selectedDate = 'Tomorrow';
-  String _selectedTime = '9:00 AM';
 
   final services = [
-    ('Wash & Fold', '₦1,500/kg', Icons.water_drop_rounded, AppColors.softBlue),
-    (
-      'Dry Clean',
-      '₦3,000/item',
-      Icons.dry_cleaning_rounded,
-      AppColors.lavender
-    ),
-    ('Iron Only', '₦800/item', Icons.iron_rounded, AppColors.mintGreen),
-    ('Express', '₦2,500/kg', Icons.bolt_rounded, AppColors.peach),
+    ('Wash & Fold',  '₦1,500/kg',   Icons.water_drop_rounded,  AppColors.softBlue),
+    ('Dry Clean',    '₦3,000/item', Icons.dry_cleaning_rounded, AppColors.lavender),
+    ('Iron Only',    '₦800/item',   Icons.iron_rounded,         AppColors.mintGreen),
+    ('Express',      '₦2,500/kg',   Icons.bolt_rounded,         AppColors.cream),
   ];
-
-  final dates = ['Today', 'Tomorrow', 'Wed 26', 'Thu 27', 'Fri 28'];
-  final times = ['8:00 AM', '9:00 AM', '11:00 AM', '2:00 PM', '5:00 PM'];
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
@@ -46,23 +45,55 @@ class _OrderScreenState extends State<OrderScreen> {
             Text("We'll come to you!",
                 style: TextStyle(fontSize: 14, color: AppColors.warmGray)),
             const SizedBox(height: 28),
+
+            // Zone indicator — shows current area or prompts to set one
+            _ZoneIndicator(
+              zoneName: user?.zoneName,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchedulePickupScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
             const SectionLabel('Choose Service'),
             const SizedBox(height: 12),
             _buildServiceSelector(),
-            const SizedBox(height: 24),
-            const SectionLabel('Pickup Date'),
-            const SizedBox(height: 12),
-            _buildDateSelector(),
-            const SizedBox(height: 24),
-            const SectionLabel('Pickup Time'),
-            const SizedBox(height: 12),
-            _buildTimeSelector(),
-            const SizedBox(height: 24),
-            const SectionLabel('Pickup Address'),
-            const SizedBox(height: 12),
-            _buildAddressCard(),
             const SizedBox(height: 32),
-            _buildConfirmButton(),
+
+            // Main CTA — opens the full scheduling flow
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SchedulePickupScreen(),
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.coral,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Schedule Pickup',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 16)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
           ],
         ),
@@ -133,142 +164,53 @@ class _OrderScreenState extends State<OrderScreen> {
       ),
     );
   }
+}
 
-  Widget _buildDateSelector() {
-    return SizedBox(
-      height: 56,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: dates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final selected = _selectedDate == dates[i];
-          return GestureDetector(
-            onTap: () => setState(() => _selectedDate = dates[i]),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.darkText : AppColors.cardBg,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 8,
-                      offset: const Offset(0, 3))
-                ],
-              ),
-              child: Text(dates[i],
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: selected ? Colors.white : AppColors.warmGray)),
-            ),
-          );
-        },
-      ),
-    );
-  }
+// ─── Zone indicator banner ─────────────────────────────────────────────────
 
-  Widget _buildTimeSelector() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: times.map((t) {
-        final selected = _selectedTime == t;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedTime = t),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.peach : AppColors.cardBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: selected ? AppColors.coral : Colors.transparent,
-                  width: 1.5),
-            ),
-            child: Text(t,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: selected ? AppColors.darkText : AppColors.warmGray)),
-          ),
-        );
-      }).toList(),
-    );
-  }
+class _ZoneIndicator extends StatelessWidget {
+  final String? zoneName;
+  final VoidCallback onTap;
 
-  Widget _buildAddressCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 12,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.cream,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.location_on_rounded,
-                color: AppColors.coral, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('12 Maitama Close',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppColors.darkText)),
-                Text('Abuja, FCT • Home',
-                    style: TextStyle(fontSize: 12, color: AppColors.warmGray)),
-              ],
-            ),
-          ),
-          Text('Change',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.coral,
-                  fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
+  const _ZoneIndicator({this.zoneName, required this.onTap});
 
-  Widget _buildConfirmButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () {},
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.coral,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: zoneName != null
+              ? AppColors.peach.withOpacity(0.35)
+              : AppColors.cream,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: zoneName != null ? AppColors.coral : AppColors.peach,
+            width: 1.5,
           ),
-          elevation: 0,
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Text('Confirm Pickup',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward_rounded),
+            Icon(Icons.location_on_rounded,
+                color: AppColors.coral, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                zoneName != null
+                    ? 'Pickup from: $zoneName'
+                    : 'Tap to select your area in Port Harcourt',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: zoneName != null
+                      ? AppColors.darkText
+                      : AppColors.warmGray,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                color: AppColors.warmGray, size: 20),
           ],
         ),
       ),

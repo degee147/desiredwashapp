@@ -1,4 +1,4 @@
-# 🫧 DesireWash – Laundry Pickup & Delivery App
+# 🫧 DesiredWash – Laundry Pickup & Delivery App
 
 A beautifully designed Flutter app for on-demand laundry pickup and delivery, featuring a warm, cozy pastel aesthetic.
 

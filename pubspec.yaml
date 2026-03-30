@@ -1,9 +1,7 @@
-name: desired_wash
-description: DesiredWash – On-demand laundry pickup & delivery app
-
+name: desiredwashapp
+description: "On-demand laundry pickup and delivery app for Port Harcourt, Nigeria."
 publish_to: "none"
-
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -11,12 +9,45 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # State management
+  provider: ^6.1.2
+
+  # Networking
+  http: ^1.2.1
+
+  # Storage
+  shared_preferences: ^2.3.2 # bumped from 2.2.3 — fixes Android 14 compat
+
+  # Payment
+  webview_flutter: ^4.8.0
+
+  # Utilities
+  intl: ^0.19.0
+
+  # UI
   cupertino_icons: ^1.0.6
+
+  # ── Uncomment when social login is configured ─────────────────────────────
+  # google_sign_in: ^6.2.1        # Step 1: add package
+  # sign_in_with_apple: ^6.1.0    # Step 1: add package
+  # Then uncomment _handleGoogle() / _handleApple() in screens/auth/auth_screens.dart
+
+  # ── Uncomment when push notifications are added ───────────────────────────
+  # flutter_local_notifications: ^17.0.0
+  # firebase_messaging: ^15.0.0
+
+  # ── Uncomment when avatar images are needed ───────────────────────────────
+  # cached_network_image: ^3.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/animations/
