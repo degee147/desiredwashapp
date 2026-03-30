@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(greeting,
-                  style: TextStyle(
+                  style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.warmGray,
                       fontWeight: FontWeight.w500)),
@@ -361,20 +361,20 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.mintGreen, width: 1.5),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const Text('🎉', style: TextStyle(fontSize: 36)),
-          const SizedBox(width: 16),
+          Text('🎉', style: TextStyle(fontSize: 36)),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('First Order Free!',
+                Text('First Order Free!',
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
                         color: AppColors.darkText)),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text('Use code BUBBLY25 for 25% off your next order',
                     style: TextStyle(fontSize: 12, color: AppColors.warmGray)),
               ],
@@ -402,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
             GestureDetector(
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const OrdersScreen())),
-              child: Text('See all',
+              child: const Text('See all',
                   style: TextStyle(
                       fontSize: 13,
                       color: AppColors.coral,
@@ -459,13 +459,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.local_laundry_service_outlined,
                 size: 36, color: AppColors.warmGray.withOpacity(0.5)),
             const SizedBox(height: 8),
-            Text('No orders yet',
+            const Text('No orders yet',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.warmGray)),
             const SizedBox(height: 4),
-            Text('Tap to schedule your first pickup →',
+            const Text('Tap to schedule your first pickup →',
                 style: TextStyle(fontSize: 12, color: AppColors.coral)),
           ],
         ),

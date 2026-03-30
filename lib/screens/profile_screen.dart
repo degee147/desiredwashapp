@@ -21,12 +21,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth  = context.watch<AuthProvider>();
+    final auth = context.watch<AuthProvider>();
     final orders = context.watch<OrderProvider>();
-    final user  = auth.user;
+    final user = auth.user;
 
     final initials = user != null
-        ? user.name.trim().split(' ')
+        ? user.name
+            .trim()
+            .split(' ')
             .where((w) => w.isNotEmpty)
             .take(2)
             .map((w) => w[0].toUpperCase())
@@ -45,8 +47,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontWeight: FontWeight.w800,
                     color: AppColors.darkText)),
             const SizedBox(height: 24),
-            _buildProfileHeader(user?.name ?? 'Guest',
-                user?.phone ?? '', initials, user?.walletBalance ?? 0),
+            _buildProfileHeader(user?.name ?? 'Guest', user?.phone ?? '',
+                initials, user?.walletBalance ?? 0),
             const SizedBox(height: 28),
             _buildOrderHistory(context, orders),
             const SizedBox(height: 28),
@@ -101,13 +103,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: AppColors.darkText)),
                 const SizedBox(height: 4),
                 Text(phone.isNotEmpty ? phone : 'No phone set',
-                    style: TextStyle(fontSize: 13, color: AppColors.warmGray)),
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.warmGray)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     StatBadge('₦${_fmt(walletBalance)}', 'Wallet'),
                     const SizedBox(width: 10),
-                    StatBadge('4.8★', 'Rating'),
+                    const StatBadge('4.8★', 'Rating'),
                   ],
                 ),
               ],
@@ -135,7 +138,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.w800,
                 color: AppColors.darkText)),
         const SizedBox(height: 14),
-
         if (orders.loading)
           const Center(
             child: Padding(
@@ -144,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           )
         else if (orders.orders.isEmpty)
-          Text('No orders yet — schedule your first pickup!',
+          const Text('No orders yet — schedule your first pickup!',
               style: TextStyle(fontSize: 13, color: AppColors.warmGray))
         else
           ...orders.orders.take(3).map((o) => Padding(
@@ -164,30 +166,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _statusLabel(OrderStatus s) {
     switch (s) {
-      case OrderStatus.delivered:  return 'Delivered';
-      case OrderStatus.cancelled:  return 'Cancelled';
-      case OrderStatus.pending:    return 'Pending';
-      case OrderStatus.confirmed:  return 'Confirmed';
-      default:                     return 'In Progress';
+      case OrderStatus.delivered:
+        return 'Delivered';
+      case OrderStatus.cancelled:
+        return 'Cancelled';
+      case OrderStatus.pending:
+        return 'Pending';
+      case OrderStatus.confirmed:
+        return 'Confirmed';
+      default:
+        return 'In Progress';
     }
   }
 
   Color _statusColor(OrderStatus s) {
     switch (s) {
-      case OrderStatus.delivered:  return AppColors.mintGreen;
-      case OrderStatus.cancelled:  return AppColors.warmGray;
-      default:                     return AppColors.coral;
+      case OrderStatus.delivered:
+        return AppColors.mintGreen;
+      case OrderStatus.cancelled:
+        return AppColors.warmGray;
+      default:
+        return AppColors.coral;
     }
   }
 
-  String _fmtFull(double v) =>
-      v.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  String _fmtFull(double v) => v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 
   String _month(int m) => const [
-    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ][m];
+        '',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][m];
 
   // ── Account settings ────────────────────────────────────────────────────────
 
@@ -205,11 +225,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: BoxDecoration(
             color: AppColors.cardBg,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
-                  color: AppColors.shadow,
-                  blurRadius: 12,
-                  offset: const Offset(0, 4))
+                  color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 4))
             ],
           ),
           child: Column(
@@ -232,23 +250,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               GestureDetector(
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const WalletScreen())),
-                child: SettingRow(
-                    Icons.account_balance_wallet_rounded,
-                    'Wallet & Payments',
-                    AppColors.softBlue),
+                child: const SettingRow(Icons.account_balance_wallet_rounded,
+                    'Wallet & Payments', AppColors.softBlue),
               ),
               CardDivider(),
-              SettingRow(Icons.notifications_rounded, 'Notifications',
+              const SettingRow(Icons.notifications_rounded, 'Notifications',
                   AppColors.peach),
               CardDivider(),
-              SettingRow(
+              const SettingRow(
                   Icons.help_rounded, 'Help & Support', AppColors.lavender),
               CardDivider(),
               // Sign Out
               GestureDetector(
                 onTap: () => _signOut(context, auth),
-                child: SettingRow(Icons.logout_rounded, 'Sign Out',
-                    const Color(0xFFFFD0D0)),
+                child: const SettingRow(
+                    Icons.logout_rounded, 'Sign Out', Color(0xFFFFD0D0)),
               ),
             ],
           ),
@@ -272,8 +288,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       auth.updateLocalUser(updated);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save area: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not save area: $e')));
       }
     } finally {
       if (mounted) setState(() => _savingZone = false);
@@ -294,8 +310,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sign Out',
-                  style: TextStyle(color: Colors.red))),
+              child:
+                  const Text('Sign Out', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -330,7 +346,8 @@ class StatBadge extends StatelessWidget {
                     color: AppColors.darkText)),
             TextSpan(
                 text: ' $label',
-                style: TextStyle(fontSize: 11, color: AppColors.warmGray)),
+                style:
+                    const TextStyle(fontSize: 11, color: AppColors.warmGray)),
           ],
         ),
       ),
@@ -354,11 +371,9 @@ class HistoryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 10,
-              offset: const Offset(0, 3))
+              color: AppColors.shadow, blurRadius: 10, offset: Offset(0, 3))
         ],
       ),
       child: Row(
@@ -384,7 +399,8 @@ class HistoryCard extends StatelessWidget {
                         fontSize: 13,
                         color: AppColors.darkText)),
                 Text('$id • $date',
-                    style: TextStyle(fontSize: 11, color: AppColors.warmGray)),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.warmGray)),
               ],
             ),
           ),
@@ -398,8 +414,7 @@ class HistoryCard extends StatelessWidget {
                       color: AppColors.darkText)),
               const SizedBox(height: 4),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(8),
@@ -449,7 +464,7 @@ class SettingRow extends StatelessWidget {
                     fontSize: 14,
                     color: AppColors.darkText)),
           ),
-          Icon(Icons.chevron_right_rounded,
+          const Icon(Icons.chevron_right_rounded,
               color: AppColors.warmGray, size: 20),
         ],
       ),

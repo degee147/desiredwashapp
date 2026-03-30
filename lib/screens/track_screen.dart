@@ -27,7 +27,7 @@ class TrackScreen extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: AppColors.darkText)),
             const SizedBox(height: 4),
-            Text('Live updates for your laundry',
+            const Text('Live updates for your laundry',
                 style: TextStyle(fontSize: 14, color: AppColors.warmGray)),
             const SizedBox(height: 24),
             _buildOrderCard(),
@@ -55,27 +55,25 @@ class TrackScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 20,
-              offset: const Offset(0, 6))
+              color: AppColors.shadow, blurRadius: 20, offset: Offset(0, 6))
         ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Order #BUB-2847',
+                    Text('Order #BUB-2847',
                         style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 16,
                             color: AppColors.darkText)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text('Wash & Fold • 3 items',
                         style:
                             TextStyle(fontSize: 13, color: AppColors.warmGray)),
@@ -100,15 +98,15 @@ class TrackScreen extends StatelessWidget {
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
+            child: const LinearProgressIndicator(
               value: 0.5,
               minHeight: 8,
               backgroundColor: AppColors.cream,
-              valueColor: const AlwaysStoppedAnimation(AppColors.coral),
+              valueColor: AlwaysStoppedAnimation(AppColors.coral),
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('3 of 6 steps complete',
@@ -150,11 +148,11 @@ class TrackScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Adebayo Okafor',
+                Text('Adebayo Okafor',
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -234,7 +232,8 @@ class TrackScreen extends StatelessWidget {
                           : AppColors.warmGray)),
               const SizedBox(height: 2),
               Text(step.time,
-                  style: TextStyle(fontSize: 12, color: AppColors.warmGray)),
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.warmGray)),
             ],
           ),
         ),

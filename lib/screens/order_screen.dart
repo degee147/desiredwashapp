@@ -20,10 +20,15 @@ class _OrderScreenState extends State<OrderScreen> {
   int _selectedService = 0;
 
   final services = [
-    ('Wash & Fold',  '₦1,500/kg',   Icons.water_drop_rounded,  AppColors.softBlue),
-    ('Dry Clean',    '₦3,000/item', Icons.dry_cleaning_rounded, AppColors.lavender),
-    ('Iron Only',    '₦800/item',   Icons.iron_rounded,         AppColors.mintGreen),
-    ('Express',      '₦2,500/kg',   Icons.bolt_rounded,         AppColors.cream),
+    ('Wash & Fold', '₦1,500/kg', Icons.water_drop_rounded, AppColors.softBlue),
+    (
+      'Dry Clean',
+      '₦3,000/item',
+      Icons.dry_cleaning_rounded,
+      AppColors.lavender
+    ),
+    ('Iron Only', '₦800/item', Icons.iron_rounded, AppColors.mintGreen),
+    ('Express', '₦2,500/kg', Icons.bolt_rounded, AppColors.cream),
   ];
 
   @override
@@ -42,7 +47,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     fontWeight: FontWeight.w800,
                     color: AppColors.darkText)),
             const SizedBox(height: 4),
-            Text("We'll come to you!",
+            const Text("We'll come to you!",
                 style: TextStyle(fontSize: 14, color: AppColors.warmGray)),
             const SizedBox(height: 28),
 
@@ -192,7 +197,7 @@ class _ZoneIndicator extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.location_on_rounded,
+            const Icon(Icons.location_on_rounded,
                 color: AppColors.coral, size: 20),
             const SizedBox(width: 10),
             Expanded(
@@ -209,7 +214,7 @@ class _ZoneIndicator extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
+            const Icon(Icons.chevron_right_rounded,
                 color: AppColors.warmGray, size: 20),
           ],
         ),

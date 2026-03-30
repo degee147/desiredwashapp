@@ -40,11 +40,9 @@ class OrderTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 12,
-              offset: const Offset(0, 4))
+              color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 4))
         ],
       ),
       child: Row(
@@ -71,7 +69,8 @@ class OrderTile extends StatelessWidget {
                         color: AppColors.darkText)),
                 const SizedBox(height: 2),
                 Text('$id • $date',
-                    style: TextStyle(fontSize: 12, color: AppColors.warmGray)),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.warmGray)),
               ],
             ),
           ),
@@ -100,9 +99,11 @@ class OrderTile extends StatelessWidget {
 
 // ── Card Divider ──────────────────────────────────────────────────────────────
 class CardDivider extends StatelessWidget {
+  const CardDivider({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Divider(
+    return const Divider(
         height: 1, indent: 56, endIndent: 16, color: AppColors.cream);
   }
 }

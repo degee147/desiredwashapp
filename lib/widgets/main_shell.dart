@@ -21,11 +21,11 @@ class _MainShellState extends State<MainShell> {
   // Using a getter so IndexedStack rebuilds with correct types —
   // OrderScreen is now stateful so can't be const in a list literal.
   List<Widget> get _pages => const [
-    HomeScreen(),
-    OrderScreen(),
-    TrackScreen(),
-    ProfileScreen(),
-  ];
+        HomeScreen(),
+        OrderScreen(),
+        TrackScreen(),
+        ProfileScreen(),
+      ];
 
   @override
   void initState() {
@@ -78,13 +78,13 @@ class BottomNav extends StatelessWidget {
     ];
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.cardBg,
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
             blurRadius: 24,
-            offset: const Offset(0, -4),
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -100,7 +100,8 @@ class BottomNav extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
                     color: selected ? AppColors.coral : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
