@@ -1,4 +1,4 @@
-package com.example.desired_wash
+package com.desiredwash.app
 
 import io.flutter.embedding.android.FlutterActivity
 

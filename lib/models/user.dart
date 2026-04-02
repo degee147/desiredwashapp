@@ -24,16 +24,16 @@ class AppUser {
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: json['id'],
-        name: json['name'],
-        email: json['email'],
-        phone: json['phone'],
-        avatarUrl: json['avatar_url'],
-        zoneId: json['zone_id'],
-        zoneName: json['zone_name'],
+        id: json['id'].toString(),
+        name: json['name'].toString(),
+        email: json['email'].toString(),
+        phone: json['phone']?.toString(),
+        avatarUrl: json['avatar_url']?.toString(),
+        zoneId: json['zone_id']?.toString(),
+        zoneName: json['zone_name']?.toString(),
         walletBalance: (json['wallet_balance'] as num?)?.toDouble() ?? 0.0,
-        authProvider: json['auth_provider'] ?? 'email',
-        createdAt: DateTime.parse(json['created_at']),
+        authProvider: json['auth_provider']?.toString() ?? 'email',
+        createdAt: DateTime.parse(json['created_at'].toString()),
       );
 
   AppUser copyWith({

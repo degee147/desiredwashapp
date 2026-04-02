@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../models/zone.dart';
 import '../../services/api_service.dart';
+import '../../providers/auth_provider.dart';
 
 /// Searchable zone list for Port Harcourt.
 /// Push this screen and await the result — returns the selected [Zone].
@@ -27,14 +29,15 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
   }
 
   Future<void> _loadZones() async {
-    // Seed locally first so picker is instant even offline
     setState(() {
       _allZones = portHarcourtZones;
       _filtered = portHarcourtZones;
       _loading = false;
     });
     try {
-      final zones = await ApiService().getZones();
+      // ✅ uses the provider instance which has the auth token
+      final zones = await context.read<ApiService>().getZones();
+      if (!mounted) return;
       setState(() {
         _allZones = zones;
         _filtered = zones;
@@ -58,6 +61,51 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
       map.putIfAbsent(z.area, () => []).add(z);
     }
     return map;
+  }
+
+  Future<void> _onConfirm() async {
+    final zone = _allZones.firstWhere((z) => z.id == _selectedId);
+
+    // Step 1: show confirmation sheet
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ZoneConfirmSheet(zone: zone),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Step 2: show loading spinner while saving
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.coral),
+      ),
+    );
+
+    // Step 3: save to backend and sync provider
+    try {
+      // ✅ uses the provider instance which has the auth token
+      final updatedUser =
+          await context.read<ApiService>().saveUserZone(zone.id);
+      if (!mounted) return;
+      context.read<AuthProvider>().updateLocalUser(updatedUser);
+    } catch (e) {
+      debugPrint('❌ saveUserZone error: $e');
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loader
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save zone: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // dismiss loader
+
+    // Step 4: go home, clearing the navigation stack
+    Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
   }
 
   @override
@@ -151,10 +199,7 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: _selectedId == null
-                      ? null
-                      : () => Navigator.pop(context,
-                          _allZones.firstWhere((z) => z.id == _selectedId)),
+                  onPressed: _selectedId == null ? null : _onConfirm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.coral,
                     disabledBackgroundColor: AppColors.cream,
@@ -183,6 +228,100 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
     );
   }
 }
+
+// ─── CONFIRMATION BOTTOM SHEET ────────────────────────────────────────────────
+
+class _ZoneConfirmSheet extends StatelessWidget {
+  final Zone zone;
+  const _ZoneConfirmSheet({required this.zone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.peach.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.location_on_rounded,
+                color: AppColors.coral, size: 28),
+          ),
+          const SizedBox(height: 16),
+          const Text('Confirm your area',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.darkText)),
+          const SizedBox(height: 8),
+          Text(zone.name,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.coral)),
+          const SizedBox(height: 4),
+          Text(zone.area,
+              style: const TextStyle(fontSize: 14, color: AppColors.warmGray)),
+          if (zone.deliveryFee != null) ...[
+            const SizedBox(height: 4),
+            Text('Delivery fee: ₦${zone.deliveryFee!.toInt()}',
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.warmGray)),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.cream),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Change',
+                      style: TextStyle(
+                          color: AppColors.darkText,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.coral,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Confirm',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── AREA SECTION ─────────────────────────────────────────────────────────────
 
 class _AreaSection extends StatelessWidget {
   final String area;

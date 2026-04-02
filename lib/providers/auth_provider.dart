@@ -47,11 +47,13 @@ class AuthProvider extends ChangeNotifier {
         ));
   }
 
-  Future<bool> signInWithEmail({required String email, required String password}) async {
+  Future<bool> signInWithEmail(
+      {required String email, required String password}) async {
     return _run(() => _api.signInWithEmail(email: email, password: password));
   }
 
-  Future<bool> signInWithGoogle(String idToken, {String? name, String? email, String? avatar}) async {
+  Future<bool> signInWithGoogle(String idToken,
+      {String? name, String? email, String? avatar}) async {
     return _run(() => _api.signInWithSocial(
           provider: 'google',
           idToken: idToken,
@@ -61,7 +63,8 @@ class AuthProvider extends ChangeNotifier {
         ));
   }
 
-  Future<bool> signInWithApple(String idToken, {String? name, String? email}) async {
+  Future<bool> signInWithApple(String idToken,
+      {String? name, String? email}) async {
     return _run(() => _api.signInWithSocial(
           provider: 'apple',
           idToken: idToken,

@@ -14,7 +14,7 @@ class _LaundryService {
   final String name;
   final String emoji;
   final double price;
-  int quantity;
+  int quantity = 0;
 
   _LaundryService(
       {required this.id,

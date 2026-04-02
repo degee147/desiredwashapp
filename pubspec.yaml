@@ -17,7 +17,7 @@ dependencies:
   http: ^1.2.1
 
   # Storage
-  shared_preferences: ^2.3.2 # bumped from 2.2.3 — fixes Android 14 compat
+  shared_preferences: ^2.3.2
 
   # Payment
   webview_flutter: ^4.8.0
@@ -29,9 +29,8 @@ dependencies:
   cupertino_icons: ^1.0.6
 
   # ── Uncomment when social login is configured ─────────────────────────────
-  # google_sign_in: ^6.2.1        # Step 1: add package
-  # sign_in_with_apple: ^6.1.0    # Step 1: add package
-  # Then uncomment _handleGoogle() / _handleApple() in screens/auth/auth_screens.dart
+  # google_sign_in: ^6.2.1
+  # sign_in_with_apple: ^6.1.0
 
   # ── Uncomment when push notifications are added ───────────────────────────
   # flutter_local_notifications: ^17.0.0
@@ -44,6 +43,57 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+
+  # Icon + splash generators — run once then remove from dev_dependencies if desired
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+# ── App icon config ───────────────────────────────────────────────────────────
+# Place your 1024×1024 PNG at: assets/icons/app_icon.png
+# Then run: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFF8F2" # AppColors.bg — your app's warm cream
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  # ↑ Optional: separate foreground for Android adaptive icon (logo only, no background)
+  # If you only have one file, remove adaptive_icon_foreground and it will use image_path for both
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false
+
+# ── Splash screen config ──────────────────────────────────────────────────────
+# Place your splash image at: assets/images/splash.png
+# Recommended size: 288×288px (1x) — the package scales it up
+# Then run: dart run flutter_native_splash:create
+flutter_native_splash:
+  # Background colour — matches AppColors.bg
+  color: "#FFF8F2"
+
+  # Your splash logo/image
+  image: assets/images/splash.png
+
+  # Android 12+ (API 31+) uses a separate config
+  android_12:
+    color: "#FFF8F2"
+    image: assets/images/splash.png
+    icon_background_color: "#FFF8F2"
+
+  # Keep splash visible until Flutter is ready
+  fullscreen: true
+
+  # Android
+  android: true
+  android_gravity: center
+
+  # iOS
+  ios: true
+  ios_content_mode: center
 
 flutter:
   uses-material-design: true
