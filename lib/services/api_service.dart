@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/zone.dart';
 import '../models/order.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 /// Central API service — all HTTP calls go here.
 /// Replace [baseUrl] with your actual backend URL.
@@ -12,11 +14,24 @@ class ApiService {
   ApiService._();
 
   static const String baseUrl = 'https://desiredwash.com/api/v1';
+  static const _tokenKey = 'auth_token';
 
   String? _authToken;
 
-  void setToken(String token) => _authToken = token;
-  void clearToken() => _authToken = null;
+  // void setToken(String token) => _authToken = token;
+  // void clearToken() => _authToken = null;
+
+  Future<void> setToken(String token) async {
+    _authToken = token;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+  }
+
+  Future<void> clearToken() async {
+    _authToken = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+  }
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -40,11 +55,38 @@ class ApiService {
       {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final res = await http.get(uri, headers: _headers);
+
+    // Handle auth
+    if (res.statusCode == 401) {
+      clearToken();
+      throw ApiException('Session expired. Please log in again.', 401);
+    }
+
+    // Check content-type safely
+    final contentType = res.headers['content-type'];
+    if (contentType == null || !contentType.contains('application/json')) {
+      throw ApiException(
+          'Unexpected server response (${res.statusCode})', res.statusCode);
+    }
+
     final data = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode >= 400)
+
+    if (res.statusCode >= 400) {
       throw ApiException(data['message'] ?? 'Server error', res.statusCode);
+    }
+
     return data;
   }
+
+  // Future<Map<String, dynamic>> _get(String path,
+  //     {Map<String, String>? query}) async {
+  //   final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+  //   final res = await http.get(uri, headers: _headers);
+  //   final data = jsonDecode(res.body) as Map<String, dynamic>;
+  //   if (res.statusCode >= 400)
+  //     throw ApiException(data['message'] ?? 'Server error', res.statusCode);
+  //   return data;
+  // }
 
   // ─── AUTH ─────────────────────────────────────────────────────────────────
 
@@ -249,10 +291,32 @@ class ApiService {
   /// POST /wallet/topup/verify
   /// Body: { transaction_ref }
   Future<double> verifyWalletTopup(String transactionRef) async {
-    final data = await _post(
-        '/wallet/topup/verify', {'transaction_ref': transactionRef});
-    return (data['new_balance'] as num).toDouble();
+    debugPrint('🔍 Verifying wallet top-up');
+    debugPrint('➡️ Transaction Ref: $transactionRef');
+
+    try {
+      final data = await _post(
+        '/wallet/topup/verify',
+        {'transaction_ref': transactionRef},
+      );
+
+      debugPrint('✅ Verify Response: $data');
+
+      final newBalance = (data['new_balance'] as num).toDouble();
+      debugPrint('💰 New Balance: $newBalance');
+
+      return newBalance;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Verification failed: $e');
+      debugPrint('📚 StackTrace: $stackTrace');
+      rethrow;
+    }
   }
+  // Future<double> verifyWalletTopup(String transactionRef) async {
+  //   final data = await _post(
+  //       '/wallet/topup/verify', {'transaction_ref': transactionRef});
+  //   return (data['new_balance'] as num).toDouble();
+  // }
 
   /// GET /wallet/transactions
   Future<List<WalletTransaction>> getWalletTransactions() async {

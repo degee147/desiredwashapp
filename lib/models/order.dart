@@ -173,6 +173,7 @@ class WalletTransaction {
   final String type;
   final double amount;
   final String description;
+  final String status;
   final String? reference;
   final DateTime createdAt;
 
@@ -182,6 +183,7 @@ class WalletTransaction {
     required this.type,
     required this.amount,
     required this.description,
+    required this.status,
     this.reference,
     required this.createdAt,
   });
@@ -193,6 +195,7 @@ class WalletTransaction {
         type: json['type'].toString(),
         amount: (json['amount'] as num).toDouble(),
         description: json['description'].toString(),
+        status: json['status'].toString(),
         reference: json['reference']?.toString(),
         createdAt: DateTime.parse(json['created_at']),
       );
