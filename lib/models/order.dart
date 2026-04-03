@@ -8,13 +8,38 @@ enum OrderStatus {
   cancelled,
 }
 
-enum PaymentMethod { card, bankTransfer, wallet }
+enum PaymentMethod { card, wallet }
 
 enum PaymentStatus { pending, success, failed }
 
+// ─── SERVICE (from GET /services) ─────────────────────────────────────────────
+
+class LaundryService {
+  final int id;
+  final String name;
+  final String emoji;
+  final double price;
+
+  const LaundryService({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.price,
+  });
+
+  factory LaundryService.fromJson(Map<String, dynamic> json) => LaundryService(
+        id: json['id'] as int,
+        name: json['name'] as String,
+        emoji: json['emoji'] as String,
+        price: double.parse(json['price'].toString()),
+      );
+}
+
+// ─── ORDER ────────────────────────────────────────────────────────────────────
+
 class PickupOrder {
   final String id;
-  final String userId;
+  final int userId;
   final String zoneId;
   final String zoneName;
   final String address;
@@ -52,35 +77,74 @@ class PickupOrder {
   });
 
   factory PickupOrder.fromJson(Map<String, dynamic> json) => PickupOrder(
-        id: json['id'],
-        userId: json['user_id'],
-        zoneId: json['zone_id'],
-        zoneName: json['zone_name'],
-        address: json['address'],
-        items: (json['items'] as List).map((e) => OrderItem.fromJson(e)).toList(),
+        id: json['id'].toString(),
+        userId: json['user_id'] is int
+            ? json['user_id']
+            : int.parse(json['user_id'].toString()),
+        zoneId: json['zone_id'].toString(),
+        zoneName: json['zone_name'].toString(),
+        address: json['address'].toString(),
+        items:
+            (json['items'] as List).map((e) => OrderItem.fromJson(e)).toList(),
         scheduledPickupDate: DateTime.parse(json['scheduled_pickup_date']),
-        scheduledPickupTime: json['scheduled_pickup_time'],
+        scheduledPickupTime: json['scheduled_pickup_time'].toString(),
         subtotal: (json['subtotal'] as num).toDouble(),
         deliveryFee: (json['delivery_fee'] as num).toDouble(),
         total: (json['total'] as num).toDouble(),
-        paymentMethod: PaymentMethod.values.byName(json['payment_method']),
-        paymentStatus: PaymentStatus.values.byName(json['payment_status']),
-        status: OrderStatus.values.byName(json['status']),
-        flutterwaveRef: json['flutterwave_ref'],
-        notes: json['notes'],
+        paymentMethod: json['payment_method'] == 'wallet'
+            ? PaymentMethod.wallet
+            : PaymentMethod.card,
+        paymentStatus: _parsePaymentStatus(json['payment_status']),
+        status: _parseOrderStatus(json['status']),
+        flutterwaveRef: json['flutterwave_ref']?.toString(),
+        notes: json['notes']?.toString(),
         createdAt: DateTime.parse(json['created_at']),
       );
+
+  static PaymentStatus _parsePaymentStatus(dynamic v) {
+    switch (v?.toString()) {
+      case 'success':
+        return PaymentStatus.success;
+      case 'failed':
+        return PaymentStatus.failed;
+      default:
+        return PaymentStatus.pending;
+    }
+  }
+
+  static OrderStatus _parseOrderStatus(dynamic v) {
+    switch (v?.toString()) {
+      case 'confirmed':
+        return OrderStatus.confirmed;
+      case 'picked_up':
+        return OrderStatus.pickedUp;
+      case 'washing':
+        return OrderStatus.washing;
+      case 'ready_for_delivery':
+        return OrderStatus.readyForDelivery;
+      case 'delivered':
+        return OrderStatus.delivered;
+      case 'cancelled':
+        return OrderStatus.cancelled;
+      default:
+        return OrderStatus.pending;
+    }
+  }
 }
 
+// ─── ORDER ITEM ───────────────────────────────────────────────────────────────
+
 class OrderItem {
-  final String serviceId;
+  final int serviceId;
   final String serviceName;
+  final String? emoji;
   final int quantity;
   final double unitPrice;
 
   const OrderItem({
     required this.serviceId,
     required this.serviceName,
+    this.emoji,
     required this.quantity,
     required this.unitPrice,
   });
@@ -88,24 +152,27 @@ class OrderItem {
   double get total => unitPrice * quantity;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-        serviceId: json['service_id'],
-        serviceName: json['service_name'],
-        quantity: json['quantity'],
+        serviceId: json['service_id'] is int
+            ? json['service_id']
+            : int.parse(json['service_id'].toString()),
+        serviceName: json['service_name'].toString(),
+        emoji: json['emoji']?.toString(),
+        quantity: json['quantity'] as int,
         unitPrice: (json['unit_price'] as num).toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
         'service_id': serviceId,
-        'service_name': serviceName,
         'quantity': quantity,
-        'unit_price': unitPrice,
       };
 }
+
+// ─── WALLET TRANSACTION ───────────────────────────────────────────────────────
 
 class WalletTransaction {
   final String id;
   final String userId;
-  final String type; // 'credit' | 'debit'
+  final String type;
   final double amount;
   final String description;
   final String? reference;
@@ -121,13 +188,14 @@ class WalletTransaction {
     required this.createdAt,
   });
 
-  factory WalletTransaction.fromJson(Map<String, dynamic> json) => WalletTransaction(
-        id: json['id'],
-        userId: json['user_id'],
-        type: json['type'],
+  factory WalletTransaction.fromJson(Map<String, dynamic> json) =>
+      WalletTransaction(
+        id: json['id'].toString(),
+        userId: json['user_id'].toString(),
+        type: json['type'].toString(),
         amount: (json['amount'] as num).toDouble(),
-        description: json['description'],
-        reference: json['reference'],
+        description: json['description'].toString(),
+        reference: json['reference']?.toString(),
         createdAt: DateTime.parse(json['created_at']),
       );
 }

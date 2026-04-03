@@ -7,6 +7,10 @@ import '../models/order.dart';
 /// Central API service — all HTTP calls go here.
 /// Replace [baseUrl] with your actual backend URL.
 class ApiService {
+  static final ApiService _instance = ApiService._();
+  factory ApiService() => _instance;
+  ApiService._();
+
   static const String baseUrl = 'https://desiredwash.com/api/v1';
 
   String? _authToken;
@@ -137,12 +141,22 @@ class ApiService {
     return updateProfile(zoneId: zoneId);
   }
 
+  // ─── SERVICES ─────────────────────────────────────────────────────────────
+
+  /// GET /services
+  Future<List<LaundryService>> getServices() async {
+    final data = await _get('/services');
+    return (data['services'] as List)
+        .map((e) => LaundryService.fromJson(e))
+        .toList();
+  }
+
   // ─── ORDERS ───────────────────────────────────────────────────────────────
 
   /// POST /orders
-  /// Body: { zone_id, address, items, scheduled_pickup_date, scheduled_pickup_time,
-  ///         payment_method, notes? }
-  /// Returns: { order, payment_link? } — payment_link present when method is card/bank
+  /// Body: { zone_id, address, items, scheduled_pickup_date,
+  ///         scheduled_pickup_time, payment_method, notes? }
+  /// Returns: { order, payment_link? }
   Future<CreateOrderResult> createOrder({
     required String zoneId,
     required String address,
@@ -159,10 +173,25 @@ class ApiService {
       'scheduled_pickup_date':
           scheduledPickupDate.toIso8601String().split('T').first,
       'scheduled_pickup_time': scheduledPickupTime,
-      'payment_method': paymentMethod.name,
-      if (notes != null) 'notes': notes,
+      'payment_method':
+          paymentMethod == PaymentMethod.wallet ? 'wallet' : 'card',
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
     });
     return CreateOrderResult.fromJson(data);
+  }
+
+  /// POST /payments/initiate
+  /// Body: { transaction_ref, order_id }
+  /// Returns: { payment_url, tx_ref }
+  Future<PaymentInitResult> initiatePayment({
+    required String transactionRef,
+    required String orderId,
+  }) async {
+    final data = await _post('/payments/initiate', {
+      'transaction_ref': transactionRef,
+      'order_id': orderId,
+    });
+    return PaymentInitResult.fromJson(data);
   }
 
   /// GET /orders
@@ -274,6 +303,19 @@ class PaymentVerificationResult {
         message: json['message'],
         order:
             json['order'] != null ? PickupOrder.fromJson(json['order']) : null,
+      );
+}
+
+class PaymentInitResult {
+  final String paymentUrl;
+  final String txRef;
+
+  PaymentInitResult({required this.paymentUrl, required this.txRef});
+
+  factory PaymentInitResult.fromJson(Map<String, dynamic> json) =>
+      PaymentInitResult(
+        paymentUrl: json['payment_url'].toString(),
+        txRef: json['tx_ref'].toString(),
       );
 }
 

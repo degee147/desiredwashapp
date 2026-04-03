@@ -9,7 +9,12 @@ import '../../providers/auth_provider.dart';
 /// Push this screen and await the result — returns the selected [Zone].
 class ZonePickerScreen extends StatefulWidget {
   final String? currentZoneId;
-  const ZonePickerScreen({super.key, this.currentZoneId});
+
+  /// When true, selecting a zone returns it to the caller instead of
+  /// saving to the user's profile and navigating home.
+  final bool returnOnly;
+  const ZonePickerScreen(
+      {super.key, this.currentZoneId, this.returnOnly = false});
 
   @override
   State<ZonePickerScreen> createState() => _ZonePickerScreenState();
@@ -75,6 +80,12 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
 
     if (confirmed != true || !mounted) return;
 
+    // returnOnly mode — just pop with the zone, don't save to profile
+    if (widget.returnOnly) {
+      Navigator.pop(context, zone);
+      return;
+    }
+
     // Step 2: show loading spinner while saving
     showDialog(
       context: context,
@@ -86,7 +97,6 @@ class _ZonePickerScreenState extends State<ZonePickerScreen> {
 
     // Step 3: save to backend and sync provider
     try {
-      // ✅ uses the provider instance which has the auth token
       final updatedUser =
           await context.read<ApiService>().saveUserZone(zone.id);
       if (!mounted) return;

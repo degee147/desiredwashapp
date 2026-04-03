@@ -1,27 +1,23 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import '../../theme/app_colors.dart';
 import '../../models/zone.dart';
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../zone/zone_picker_screen.dart';
-import '../payment/payment_screen.dart';
 
-class _LaundryService {
-  final String id;
-  final String name;
-  final String emoji;
-  final double price;
-  int quantity = 0;
+// ─── SERVICE ITEM (UI state wrapper) ─────────────────────────────────────────
 
-  _LaundryService(
-      {required this.id,
-      required this.name,
-      required this.emoji,
-      required this.price});
+class _ServiceItem {
+  final LaundryService service;
+  int quantity;
+  _ServiceItem(this.service) : quantity = 0;
 }
+
+// ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 
 class SchedulePickupScreen extends StatefulWidget {
   const SchedulePickupScreen({super.key});
@@ -40,19 +36,10 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   PaymentMethod _paymentMethod = PaymentMethod.card;
   bool _submitting = false;
 
-  final List<_LaundryService> _services = [
-    _LaundryService(
-        id: 'wash_fold', name: 'Wash & Fold', emoji: '👕', price: 1500),
-    _LaundryService(
-        id: 'dry_clean', name: 'Dry Cleaning', emoji: '🧥', price: 3500),
-    _LaundryService(
-        id: 'bedding', name: 'Bedding & Duvet', emoji: '🛏️', price: 4000),
-    _LaundryService(
-        id: 'shoe_clean', name: 'Shoe Cleaning', emoji: '👟', price: 2000),
-    _LaundryService(
-        id: 'iron_only', name: 'Iron Only', emoji: '♨️', price: 800),
-    _LaundryService(id: 'curtains', name: 'Curtains', emoji: '🪟', price: 3000),
-  ];
+  // Services loaded from backend
+  List<_ServiceItem> _serviceItems = [];
+  bool _loadingServices = true;
+  String? _servicesError;
 
   static const _timeSlots = [
     '8:00 AM',
@@ -67,11 +54,50 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     '5:00 PM',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+    // Pre-populate address from user profile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().user;
+      if (user?.address != null && user!.address!.isNotEmpty) {
+        _addressController.text = user.address!;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() {
+      _loadingServices = true;
+      _servicesError = null;
+    });
+    try {
+      final services = await ApiService().getServices();
+      setState(() {
+        _serviceItems = services.map((s) => _ServiceItem(s)).toList();
+        _loadingServices = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadingServices = false;
+        _servicesError = e.toString();
+      });
+    }
+  }
+
   double get _subtotal =>
-      _services.fold(0, (sum, s) => sum + s.price * s.quantity);
+      _serviceItems.fold(0, (sum, s) => sum + s.service.price * s.quantity);
   double get _deliveryFee => _selectedZone?.deliveryFee ?? 0;
   double get _total => _subtotal + _deliveryFee;
-  bool get _hasItems => _services.any((s) => s.quantity > 0);
+  bool get _hasItems => _serviceItems.any((s) => s.quantity > 0);
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +126,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Location ──────────────────────────────────────────────────
               _sectionHeader('📍 Pickup Location'),
               const SizedBox(height: 10),
               _ZoneCard(
@@ -112,8 +139,11 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                   final zone = await Navigator.push<Zone>(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => ZonePickerScreen(
-                            currentZoneId: _selectedZone?.id ?? user?.zoneId)),
+                      builder: (_) => ZonePickerScreen(
+                        currentZoneId: _selectedZone?.id ?? user?.zoneId,
+                        returnOnly: true, // just return, don't save to profile
+                      ),
+                    ),
                   );
                   if (zone != null) setState(() => _selectedZone = zone);
                 },
@@ -135,31 +165,60 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
+
+              // ── Services ──────────────────────────────────────────────────
               _sectionHeader('🧺 Select Services'),
               const SizedBox(height: 10),
-              _Card(
-                child: Column(
-                  children: _services.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final s = entry.value;
-                    return Column(
-                      children: [
-                        _ServiceRow(
-                          service: s,
-                          onIncrement: () => setState(() => s.quantity++),
-                          onDecrement: () => setState(() {
-                            if (s.quantity > 0) s.quantity--;
-                          }),
-                        ),
-                        if (i < _services.length - 1)
-                          Divider(height: 1, color: Colors.grey.shade100),
-                      ],
-                    );
-                  }).toList(),
+              if (_loadingServices)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(color: AppColors.coral),
+                  ),
+                )
+              else if (_servicesError != null)
+                _Card(
+                  child: Column(
+                    children: [
+                      Text('Could not load services',
+                          style: TextStyle(color: Colors.grey.shade500)),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _loadServices,
+                        child: const Text('Retry',
+                            style: TextStyle(color: AppColors.coral)),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                _Card(
+                  child: Column(
+                    children: _serviceItems.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final item = entry.value;
+                      return Column(
+                        children: [
+                          _ServiceRow(
+                            item: item,
+                            onIncrement: () => setState(() => item.quantity++),
+                            onDecrement: () => setState(() {
+                              if (item.quantity > 0) item.quantity--;
+                            }),
+                          ),
+                          if (i < _serviceItems.length - 1)
+                            Divider(height: 1, color: Colors.grey.shade100),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
+
               const SizedBox(height: 24),
+
+              // ── Date & Time ───────────────────────────────────────────────
               _sectionHeader('📅 Pickup Date & Time'),
               const SizedBox(height: 10),
               _DatePickerCard(
@@ -172,7 +231,10 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                 selected: _selectedTime,
                 onSelect: (t) => setState(() => _selectedTime = t),
               ),
+
               const SizedBox(height: 24),
+
+              // ── Payment ───────────────────────────────────────────────────
               _sectionHeader('💳 Payment Method'),
               const SizedBox(height: 10),
               _PaymentMethodCard(
@@ -181,7 +243,10 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                 total: _total,
                 onChanged: (m) => setState(() => _paymentMethod = m),
               ),
+
               const SizedBox(height: 24),
+
+              // ── Notes ─────────────────────────────────────────────────────
               _sectionHeader('📝 Special Notes (optional)'),
               const SizedBox(height: 10),
               _Card(
@@ -197,19 +262,20 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
+
+              // ── Summary ───────────────────────────────────────────────────
               _OrderSummaryCard(
                 subtotal: _subtotal,
                 deliveryFee: _deliveryFee,
                 total: _total,
-                zoneName: _selectedZone?.name,
+                zoneName: _selectedZone?.name ?? user?.zoneName,
               ),
             ],
           ),
         ),
       ),
-
-      // Sticky confirm button
       bottomSheet: _ConfirmBar(
         total: _total,
         enabled: _hasItems &&
@@ -228,27 +294,30 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     final zone = _selectedZone ??
         Zone(
           id: user.zoneId!,
-          name: user.zoneName!,
+          name: user.zoneName ?? '',
           area: '',
           deliveryFee: _deliveryFee,
         );
 
-    final items = _services
+    final items = _serviceItems
         .where((s) => s.quantity > 0)
         .map((s) => OrderItem(
-              serviceId: s.id,
-              serviceName: s.name,
+              serviceId: s.service.id,
+              serviceName: s.service.name,
+              emoji: s.service.emoji,
               quantity: s.quantity,
-              unitPrice: s.price,
+              unitPrice: s.service.price,
             ))
         .toList();
+
+    final address = _addressController.text.trim();
 
     setState(() => _submitting = true);
 
     try {
       final result = await ApiService().createOrder(
         zoneId: zone.id,
-        address: _addressController.text.trim(),
+        address: address,
         items: items,
         scheduledPickupDate: _selectedDate!,
         scheduledPickupTime: _selectedTime!,
@@ -261,21 +330,40 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
       if (!mounted) return;
       setState(() => _submitting = false);
 
-      // Navigate to payment screen
-      Navigator.push(
+      if (_paymentMethod == PaymentMethod.wallet) {
+        // Wallet payment — order is placed immediately, go to success screen
+        _showOrderSuccess(result.order);
+      } else {
+        // Card payment — open Flutterwave WebView
+        await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PaymentScreen(
+            builder: (_) => _FlutterwavePaymentScreen(
               order: result.order,
-              paymentLink: result.paymentLink,
-              paymentMethod: _paymentMethod,
+              paymentLink: result.paymentLink!,
             ),
-          ));
+          ),
+        );
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+  }
+
+  void _showOrderSuccess(PickupOrder order) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => _OrderSuccessScreen(order: order)),
+      (route) => route.isFirst,
+    );
   }
 
   Widget _sectionHeader(String text) => Text(text,
@@ -283,6 +371,255 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
           fontSize: 16,
           fontWeight: FontWeight.w700,
           color: AppColors.darkText));
+}
+
+// ─── FLUTTERWAVE PAYMENT WEBVIEW ──────────────────────────────────────────────
+
+class _FlutterwavePaymentScreen extends StatefulWidget {
+  final PickupOrder order;
+  final String paymentLink;
+  const _FlutterwavePaymentScreen(
+      {required this.order, required this.paymentLink});
+
+  @override
+  State<_FlutterwavePaymentScreen> createState() =>
+      _FlutterwavePaymentScreenState();
+}
+
+class _FlutterwavePaymentScreenState extends State<_FlutterwavePaymentScreen> {
+  late final WebViewController _controller;
+  bool _verifying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onNavigationRequest: (req) {
+          final url = req.url;
+          debugPrint('🌐 WebView navigating to: $url');
+
+          // Flutterwave redirects back with status in the URL
+          if (url.contains('status=successful') ||
+              url.contains('status=completed')) {
+            final uri = Uri.parse(url);
+            final txRef = uri.queryParameters['tx_ref'] ??
+                uri.queryParameters['transaction_id'] ??
+                '';
+            _onPaymentSuccess(txRef);
+            return NavigationDecision.prevent;
+          }
+
+          if (url.contains('status=cancelled') ||
+              url.contains('status=failed')) {
+            _onPaymentCancelled();
+            return NavigationDecision.prevent;
+          }
+
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(widget.paymentLink));
+  }
+
+  Future<void> _onPaymentSuccess(String txRef) async {
+    if (_verifying) return;
+    setState(() => _verifying = true);
+
+    try {
+      // Verify payment with backend
+      await ApiService().initiatePayment(
+        transactionRef: txRef,
+        orderId: widget.order.id,
+      );
+
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _OrderSuccessScreen(order: widget.order),
+        ),
+        (route) => route.isFirst,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment verification failed: $e'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    }
+  }
+
+  void _onPaymentCancelled() {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment was cancelled.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: AppColors.darkText),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Cancel Payment?'),
+                content: const Text(
+                    'Your order has been placed but payment is incomplete. You can pay later from your orders.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Continue Paying'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context); // close dialog
+                      Navigator.pop(context); // close webview
+                    },
+                    child: Text('Leave',
+                        style: TextStyle(color: Colors.red.shade600)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        title: const Text('Complete Payment',
+            style: TextStyle(
+                color: AppColors.darkText, fontWeight: FontWeight.w700)),
+        centerTitle: true,
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_verifying)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: AppColors.coral),
+                    SizedBox(height: 16),
+                    Text('Verifying payment…',
+                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ORDER SUCCESS SCREEN ─────────────────────────────────────────────────────
+
+class _OrderSuccessScreen extends StatelessWidget {
+  final PickupOrder order;
+  const _OrderSuccessScreen({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat('#,###');
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F8F0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_rounded,
+                    color: Color(0xFF2ECC71), size: 50),
+              ),
+              const SizedBox(height: 24),
+              const Text('Order Placed! 🎉',
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.darkText)),
+              const SizedBox(height: 10),
+              Text(
+                'We\'ll pick up your laundry on\n${DateFormat('EEEE, MMM d').format(order.scheduledPickupDate)} at ${order.scheduledPickupTime}.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 15, color: AppColors.warmGray, height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3))
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _SummaryRow('Order ID',
+                        '#${order.id.substring(0, 8).toUpperCase()}'),
+                    const SizedBox(height: 8),
+                    _SummaryRow('Total', '₦${fmt.format(order.total)}',
+                        bold: true),
+                    const SizedBox(height: 8),
+                    _SummaryRow(
+                        'Payment',
+                        order.paymentMethod == PaymentMethod.wallet
+                            ? 'Wallet'
+                            : 'Card'),
+                    const SizedBox(height: 8),
+                    _SummaryRow('Address', order.address),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      context, '/', (_) => false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.coral,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Back to Home',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── SUB-WIDGETS ─────────────────────────────────────────────────────────────
@@ -350,11 +687,11 @@ class _ZoneCard extends StatelessWidget {
 }
 
 class _ServiceRow extends StatelessWidget {
-  final _LaundryService service;
+  final _ServiceItem item;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   const _ServiceRow(
-      {required this.service,
+      {required this.item,
       required this.onIncrement,
       required this.onDecrement});
 
@@ -363,25 +700,26 @@ class _ServiceRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            Text(service.emoji, style: const TextStyle(fontSize: 22)),
+            Text(item.service.emoji, style: const TextStyle(fontSize: 22)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(service.name,
+                  Text(item.service.name,
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           color: AppColors.darkText)),
-                  Text('₦${NumberFormat('#,###').format(service.price)}/item',
+                  Text(
+                      '₦${NumberFormat('#,###').format(item.service.price)}/item',
                       style: const TextStyle(
                           color: AppColors.warmGray, fontSize: 12)),
                 ],
               ),
             ),
             _Counter(
-                count: service.quantity,
+                count: item.quantity,
                 onIncrement: onIncrement,
                 onDecrement: onDecrement),
           ],
@@ -645,7 +983,7 @@ class _PaymentOption extends StatelessWidget {
                 value: method,
                 groupValue: selected,
                 activeColor: AppColors.coral,
-                onChanged: enabled ? (v) => onTap?.call() : null,
+                onChanged: enabled ? (_) => onTap?.call() : null,
               ),
             ],
           ),
@@ -672,7 +1010,7 @@ class _OrderSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.mintGreen,
+        color: const Color(0xFFE8F8F4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFB2DFD8)),
       ),

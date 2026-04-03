@@ -221,7 +221,6 @@ class _OrderCard extends StatelessWidget {
   IconData _paymentIcon(PaymentMethod m) {
     switch (m) {
       case PaymentMethod.card: return Icons.credit_card_rounded;
-      case PaymentMethod.bankTransfer: return Icons.account_balance_rounded;
       case PaymentMethod.wallet: return Icons.account_balance_wallet_rounded;
     }
   }
@@ -229,7 +228,6 @@ class _OrderCard extends StatelessWidget {
   String _paymentLabel(PaymentMethod m) {
     switch (m) {
       case PaymentMethod.card: return 'Card';
-      case PaymentMethod.bankTransfer: return 'Bank';
       case PaymentMethod.wallet: return 'Wallet';
     }
   }

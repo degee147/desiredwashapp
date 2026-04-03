@@ -62,7 +62,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     setState(() => _cancelling = true);
     try {
-      await ApiService().cancelOrder(widget.orderId);
+      await context.read<ApiService>().cancelOrder(widget.orderId);
       await _load();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -162,6 +162,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Row(
                             children: [
+                              if (item.emoji != null) ...[
+                                Text(item.emoji!, style: const TextStyle(fontSize: 20)),
+                                const SizedBox(width: 10),
+                              ],
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,7 +270,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   String _paymentMethodLabel(PaymentMethod m) {
     switch (m) {
       case PaymentMethod.card: return 'Card (Flutterwave)';
-      case PaymentMethod.bankTransfer: return 'Bank Transfer (Flutterwave)';
       case PaymentMethod.wallet: return 'Wallet Balance';
     }
   }

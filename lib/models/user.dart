@@ -3,11 +3,12 @@ class AppUser {
   final String name;
   final String email;
   final String? phone;
+  final String? address;
   final String? avatarUrl;
   final String? zoneId;
   final String? zoneName;
   final double walletBalance;
-  final String authProvider; // 'email' | 'google' | 'apple'
+  final String authProvider;
   final DateTime createdAt;
 
   const AppUser({
@@ -15,6 +16,7 @@ class AppUser {
     required this.name,
     required this.email,
     this.phone,
+    this.address,
     this.avatarUrl,
     this.zoneId,
     this.zoneName,
@@ -28,6 +30,7 @@ class AppUser {
         name: json['name'].toString(),
         email: json['email'].toString(),
         phone: json['phone']?.toString(),
+        address: json['address']?.toString(),
         avatarUrl: json['avatar_url']?.toString(),
         zoneId: json['zone_id']?.toString(),
         zoneName: json['zone_name']?.toString(),
@@ -39,6 +42,7 @@ class AppUser {
   AppUser copyWith({
     String? name,
     String? phone,
+    String? address,
     String? zoneId,
     String? zoneName,
     double? walletBalance,
@@ -48,6 +52,7 @@ class AppUser {
         name: name ?? this.name,
         email: email,
         phone: phone ?? this.phone,
+        address: address ?? this.address,
         avatarUrl: avatarUrl,
         zoneId: zoneId ?? this.zoneId,
         zoneName: zoneName ?? this.zoneName,
