@@ -28,9 +28,10 @@ dependencies:
   # UI
   cupertino_icons: ^1.0.6
 
-  # ── Uncomment when social login is configured ─────────────────────────────
-  # google_sign_in: ^6.2.1
-  # sign_in_with_apple: ^6.1.0
+  # ── Social login ──────────────────────────────────────────────────────────
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.0
+  crypto: ^3.0.3
 
   # ── Uncomment when push notifications are added ───────────────────────────
   # flutter_local_notifications: ^17.0.0

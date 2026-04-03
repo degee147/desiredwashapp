@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../zone/zone_picker_screen.dart';
 import 'auth_widgets.dart';
 import 'sign_up_screen.dart';
 import 'login_screen.dart';
@@ -52,7 +56,7 @@ class WelcomeScreen extends StatelessWidget {
                         height: 1.1)),
                 const SizedBox(height: 14),
                 const Text(
-                    'Schedule a pickup in minutes. We wash,\ndry & deliver in Port Harcourt.',
+                    'Schedule a pickup in minutes. \nWe wash, \ndry \n& deliver in Port Harcourt.',
                     style: TextStyle(
                         fontSize: 16, color: AppColors.warmGray, height: 1.5)),
                 const Spacer(flex: 2),
@@ -60,13 +64,6 @@ class WelcomeScreen extends StatelessWidget {
                   label: 'Continue with Google',
                   icon: Icons.g_mobiledata_rounded,
                   onTap: () => _handleGoogle(context),
-                ),
-                const SizedBox(height: 12),
-                AuthSocialButton(
-                  label: 'Continue with Apple',
-                  icon: Icons.apple_rounded,
-                  onTap: () => _handleApple(context),
-                  dark: true,
                 ),
                 const SizedBox(height: 20),
                 const Row(children: [
@@ -130,19 +127,44 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  void _handleGoogle(BuildContext context) async {
-    // TODO: Add google_sign_in package and uncomment:
-    // final googleUser = await GoogleSignIn().signIn();
-    // final auth = await googleUser?.authentication;
-    // if (auth?.idToken == null) return;
-    // await context.read<AuthProvider>().signInWithGoogle(auth!.idToken!, ...);
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add google_sign_in package to enable')));
+  Future<void> _handleGoogle(BuildContext context) async {
+    try {
+      final result = await AuthService().signInWithGoogle();
+      if (!context.mounted) return;
+
+      final ok = await context.read<AuthProvider>().signInWithGoogle(
+            result.idToken,
+            name: result.name,
+            email: result.email,
+            avatar: result.avatarUrl,
+          );
+
+      if (ok && context.mounted) await _navigateAfterSocialLogin(context);
+    } on SocialAuthException catch (e) {
+      if (e.cancelled) return;
+      if (context.mounted) _showError(context, e.message);
+    }
   }
 
-  void _handleApple(BuildContext context) async {
-    // TODO: Add sign_in_with_apple package and uncomment
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Add sign_in_with_apple package to enable')));
+  /// After social login: if the user has no zone yet, push ZonePicker first.
+  Future<void> _navigateAfterSocialLogin(BuildContext context) async {
+    final user = context.read<AuthProvider>().user;
+    if (user?.zoneId == null) {
+      await Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const ZonePickerScreen()));
+    }
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }

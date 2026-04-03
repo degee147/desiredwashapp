@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "601731908423",
+    "project_id": "desiredwash-42237",
+    "storage_bucket": "desiredwash-42237.firebasestorage.app"
+  },
+  "client": [{
+    "client_info": {
+      "mobilesdk_app_id": "1:601731908423:android:7fdeb0d8668673c77dc262",
+      "android_client_info": {
+        "package_name": "com.desiredwash.app"
+      }
+    },
+    "oauth_client": [{
+        "client_id": "601731908423-3qkc0fh9ogafm6ua2vq1s78bmg761jjk.apps.googleusercontent.com",
+        "client_type": 1,
+        "android_info": {
+          "package_name": "com.desiredwash.app",
+          "certificate_hash": "c098fad3b579044e8985323116c2b17abcc0ed88"
+        }
+      },
+      {
+        "client_id": "601731908423-8a4a4llflqt599f9gibneoeo4t7kpnk1.apps.googleusercontent.com",
+        "client_type": 1,
+        "android_info": {
+          "package_name": "com.desiredwash.app",
+          "certificate_hash": "fdd417cb1746f8442b208d947ecdab25a442a79f"
+        }
+      },
+      {
+        "client_id": "601731908423-6cj4851hqklbsk73heret3k13gp6hp22.apps.googleusercontent.com",
+        "client_type": 3
+      }
+    ],
+    "api_key": [{
+      "current_key": "AIzaSyC2tdxgbyX17drpST35n4X-07qlHehY8yk"
+    }],
+    "services": {
+      "appinvite_service": {
+        "other_platform_oauth_client": [{
+          "client_id": "601731908423-6cj4851hqklbsk73heret3k13gp6hp22.apps.googleusercontent.com",
+          "client_type": 3
+        }]
+      }
+    }
+  }],
+  "configuration_version": "1"
+}
