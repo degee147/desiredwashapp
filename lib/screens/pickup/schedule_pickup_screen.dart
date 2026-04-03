@@ -302,7 +302,7 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     final items = _serviceItems
         .where((s) => s.quantity > 0)
         .map((s) => OrderItem(
-              serviceId: s.service.id,
+              serviceId: s.service.id.toString(),
               serviceName: s.service.name,
               emoji: s.service.emoji,
               quantity: s.quantity,

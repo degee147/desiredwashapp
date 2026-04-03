@@ -135,7 +135,7 @@ class PickupOrder {
 // ─── ORDER ITEM ───────────────────────────────────────────────────────────────
 
 class OrderItem {
-  final int serviceId;
+  final String serviceId; // ← String to handle both int IDs and legacy slugs
   final String serviceName;
   final String? emoji;
   final int quantity;
@@ -152,9 +152,7 @@ class OrderItem {
   double get total => unitPrice * quantity;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-        serviceId: json['service_id'] is int
-            ? json['service_id']
-            : int.parse(json['service_id'].toString()),
+        serviceId: json['service_id'].toString(), // safe for int or slug string
         serviceName: json['service_name'].toString(),
         emoji: json['emoji']?.toString(),
         quantity: json['quantity'] as int,

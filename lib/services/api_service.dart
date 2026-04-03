@@ -195,9 +195,10 @@ class ApiService {
   }
 
   /// GET /orders
+  /// Response envelope uses "data" key (not "orders")
   Future<List<PickupOrder>> getOrders() async {
     final data = await _get('/orders');
-    return (data['orders'] as List)
+    return (data['data'] as List) // ← was data['orders']
         .map((e) => PickupOrder.fromJson(e))
         .toList();
   }

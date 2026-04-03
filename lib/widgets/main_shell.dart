@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../screens/home_screen.dart';
-import '../screens/order_screen.dart';
-import '../screens/track_screen.dart';
+// import '../screens/order_screen.dart';
+import '../screens/pickup/schedule_pickup_screen.dart';
+// import '../screens/track_screen.dart';
+// import '../screens/order_screen.dart';
+import '../screens/orders/orders_screen.dart';
 import '../screens/profile_screen.dart';
 import '../providers/auth_provider.dart';
 import '../screens/zone/zone_picker_screen.dart';
@@ -22,8 +25,11 @@ class _MainShellState extends State<MainShell> {
   // OrderScreen is now stateful so can't be const in a list literal.
   List<Widget> get _pages => const [
         HomeScreen(),
-        OrderScreen(),
-        TrackScreen(),
+        // OrderScreen(),
+        SchedulePickupScreen(),
+        // OrderScreen(),
+        OrdersScreen(),
+        // TrackScreen(),
         ProfileScreen(),
       ];
 
@@ -72,8 +78,9 @@ class BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       (Icons.home_rounded, 'Home'),
-      (Icons.local_laundry_service_rounded, 'Order'),
-      (Icons.track_changes_rounded, 'Track'),
+      (Icons.local_laundry_service_rounded, 'Schedule'),
+      // (Icons.track_changes_rounded, 'Track'),
+      (Icons.track_changes_rounded, 'Orders'),
       (Icons.person_rounded, 'Profile'),
     ];
 
