@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart'; // ← add this
 
 class AuthProvider extends ChangeNotifier {
   final ApiService _api;
@@ -28,6 +29,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _api.getProfile();
       notifyListeners();
+
+      // ✅ Re-register FCM token — may have rotated since last session
+      await PushNotificationService().registerTokenIfReady();
     } catch (_) {
       await _logout();
     }
@@ -73,6 +77,7 @@ class AuthProvider extends ChangeNotifier {
         ));
   }
 
+  // ✅ Single place — covers signUp, signIn (email + social)
   Future<bool> _run(Future<AuthResult> Function() call) async {
     _loading = true;
     _error = null;
@@ -81,9 +86,13 @@ class AuthProvider extends ChangeNotifier {
       final result = await call();
       _user = result.user;
       _token = result.token;
-      _api.setToken(result.token);
+      await _api.setToken(result.token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', result.token);
+
+      // ✅ Token is now set — backend will accept the authenticated request
+      await PushNotificationService().registerTokenIfReady();
+
       _loading = false;
       notifyListeners();
       return true;
@@ -108,9 +117,6 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('auth_token');
   }
 
-  /// Fetches the latest profile from the backend (balance, zone, address, etc.)
-  /// and updates local state. Silently swallowed on error — stale data is
-  /// better than a broken screen.
   Future<void> refreshProfile() async {
     if (_token == null) return;
     try {

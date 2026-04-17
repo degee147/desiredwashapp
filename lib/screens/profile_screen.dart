@@ -4,9 +4,11 @@ import '../theme/app_colors.dart';
 import '../widgets/shared_widgets.dart';
 import '../providers/auth_provider.dart';
 import '../providers/order_provider.dart';
+import '../providers/notification_provider.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
 import 'zone/zone_picker_screen.dart';
+import 'notifications/notifications_screen.dart';
 import 'wallet/wallet_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -219,8 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ][m];
 
   // ── Account settings ────────────────────────────────────────────────────────
-
   Widget _buildAccountSettings(BuildContext context, AuthProvider auth) {
+    final unread = context.watch<NotificationProvider>().unreadCount;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -241,7 +244,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Column(
             children: [
-              // Saved Addresses → Zone picker
               GestureDetector(
                 onTap: () => _changeZone(context, auth),
                 child: SettingRow(
@@ -255,7 +257,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               CardDivider(),
-              // Wallet
               GestureDetector(
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const WalletScreen())),
@@ -263,13 +264,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Wallet & Payments', AppColors.softBlue),
               ),
               CardDivider(),
-              const SettingRow(Icons.notifications_rounded, 'Notifications',
-                  AppColors.peach),
+              // ── Notifications row with unread badge ────────────────────────
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen()),
+                ),
+                child: SettingRow(
+                  Icons.notifications_rounded,
+                  'Notifications',
+                  AppColors.peach,
+                  badge: unread > 0 ? unread : null,
+                ),
+              ),
               CardDivider(),
               const SettingRow(
                   Icons.help_rounded, 'Help & Support', AppColors.lavender),
               CardDivider(),
-              // Sign Out
               GestureDetector(
                 onTap: () => _signOut(context, auth),
                 child: const SettingRow(
@@ -447,8 +459,9 @@ class SettingRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color iconBg;
+  final int? badge; // unread count — null = no badge
 
-  const SettingRow(this.icon, this.label, this.iconBg, {super.key});
+  const SettingRow(this.icon, this.label, this.iconBg, {super.key, this.badge});
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +486,23 @@ class SettingRow extends StatelessWidget {
                     fontSize: 14,
                     color: AppColors.darkText)),
           ),
+          if (badge != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.coral,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                badge! > 99 ? '99+' : '$badge',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
           const Icon(Icons.chevron_right_rounded,
               color: AppColors.warmGray, size: 20),
         ],

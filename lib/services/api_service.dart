@@ -5,6 +5,9 @@ import '../models/zone.dart';
 import '../models/order.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import '../models/app_notification.dart';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// Central API service — all HTTP calls go here.
 /// Replace [baseUrl] with your actual backend URL.
@@ -325,6 +328,54 @@ class ApiService {
     return (data['transactions'] as List)
         .map((e) => WalletTransaction.fromJson(e))
         .toList();
+  }
+
+  /// GET /notifications
+  /// Returns: { notifications: [...] }
+  Future<List<AppNotification>> getNotifications() async {
+    final data = await _get('/notifications');
+    return (data['notifications'] as List)
+        .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// PATCH /notifications/:id/read
+  Future<void> markNotificationRead(String notificationId) async {
+    await _post('/notifications/$notificationId/read', {});
+  }
+
+  /// PATCH /notifications/read-all
+  Future<void> markAllNotificationsRead() async {
+    await _post('/notifications/read-all', {});
+  }
+
+  /// POST /notifications/fcm-token
+  /// Body: { fcm_token }
+  /// Call this once after obtaining the device FCM token.
+  Future<void> registerFcmToken(String fcmToken) async {
+    final deviceInfo = DeviceInfoPlugin();
+
+    String? deviceName;
+    String deviceType;
+
+    if (Platform.isAndroid) {
+      final android = await deviceInfo.androidInfo;
+      deviceName = '${android.brand} ${android.model}';
+      deviceType = 'android';
+    } else if (Platform.isIOS) {
+      final ios = await deviceInfo.iosInfo;
+      deviceName = ios.name;
+      deviceType = 'ios';
+    } else {
+      deviceType = 'unknown';
+      deviceName = 'unknown';
+    }
+
+    await _post('/notifications/fcm-token', {
+      'fcm_token': fcmToken,
+      'device_type': deviceType,
+      'device_name': deviceName,
+    });
   }
 }
 
