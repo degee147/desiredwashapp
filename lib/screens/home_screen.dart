@@ -22,6 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Always refresh profile so wallet balance & zone stay current
+      context.read<AuthProvider>().refreshProfile();
       final op = context.read<OrderProvider>();
       if (op.orders.isEmpty && !op.loading) op.load();
     });

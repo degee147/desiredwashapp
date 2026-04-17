@@ -20,6 +20,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _savingZone = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Refresh profile so wallet balance, zone, and address are always current
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().refreshProfile();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final orders = context.watch<OrderProvider>();

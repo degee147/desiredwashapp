@@ -108,6 +108,17 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('auth_token');
   }
 
+  /// Fetches the latest profile from the backend (balance, zone, address, etc.)
+  /// and updates local state. Silently swallowed on error — stale data is
+  /// better than a broken screen.
+  Future<void> refreshProfile() async {
+    if (_token == null) return;
+    try {
+      _user = await _api.getProfile();
+      notifyListeners();
+    } catch (_) {}
+  }
+
   void updateLocalUser(AppUser updated) {
     _user = updated;
     notifyListeners();

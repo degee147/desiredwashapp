@@ -58,11 +58,28 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
   void initState() {
     super.initState();
     _loadServices();
-    // Pre-populate address from user profile
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Refresh profile first so we always pre-populate from the latest server
+    // data (balance, zone_id, address). Zone resolution runs in the callback
+    // so it sees the freshly-loaded user.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<AuthProvider>().refreshProfile();
+      if (!mounted) return;
+
       final user = context.read<AuthProvider>().user;
+
+      // Address — use saved address if available
       if (user?.address != null && user!.address!.isNotEmpty) {
         _addressController.text = user.address!;
+      }
+
+      // Zone — resolve full Zone (including deliveryFee) from the local
+      // zone list so the order summary shows the correct fee immediately.
+      if (user?.zoneId != null && _selectedZone == null) {
+        final match =
+            portHarcourtZones.where((z) => z.id == user!.zoneId).firstOrNull;
+        if (match != null && mounted) {
+          setState(() => _selectedZone = match);
+        }
       }
     });
   }
