@@ -159,11 +159,12 @@ class ApiService {
   /// PATCH /profile
   /// Body: { name?, phone?, zone_id? }
   Future<AppUser> updateProfile(
-      {String? name, String? phone, String? zoneId}) async {
+      {String? name, String? phone, String? zoneId, String? address}) async {
     final data = await _post('/profile/update', {
       if (name != null) 'name': name,
       if (phone != null) 'phone': phone,
       if (zoneId != null) 'zone_id': zoneId,
+      if (address != null) 'address': address,
     });
     return AppUser.fromJson(data['user']);
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -332,6 +333,15 @@ class _SchedulePickupScreenState extends State<SchedulePickupScreen> {
     setState(() => _submitting = true);
 
     try {
+      // Update the user's zone and address in the background so the profile
+      // always reflects the most recently used pickup location.
+      unawaited(
+        context.read<ApiService>().updateProfile(
+              zoneId: zone.id,
+              address: address,
+            ),
+      );
+
       final result = await ApiService().createOrder(
         zoneId: zone.id,
         address: address,
