@@ -15,6 +15,8 @@ import 'services/api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
 import 'screens/auth/auth_screens.dart';
+import 'screens/notifications/notifications_screen.dart';
+import 'screens/orders/order_detail_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,7 +100,7 @@ class _AppGateState extends State<_AppGate> {
     if (mounted) setState(() => _ready = true);
   }
 
-  // 🔽 NEW: Push callback wiring
+  // 🔽 Push callback wiring
   void _initPushCallbacks(BuildContext context) {
     PushNotificationService().onForegroundMessage = (notification) {
       context.read<NotificationProvider>().addLocalNotification(notification);
@@ -106,14 +108,17 @@ class _AppGateState extends State<_AppGate> {
 
     PushNotificationService().onNotificationTap = (orderId) {
       if (orderId != null) {
-        // TODO: Navigate to order details screen
-        // Navigator.push(context, MaterialPageRoute(
-        //   builder: (_) => OrderDetailScreen(orderId: orderId),
-        // ));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(orderId: orderId),
+          ),
+        );
       } else {
-        // TODO: Replace with your actual Notifications screen
-        // Navigator.push(context,
-        //   MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+        );
       }
     };
   }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
+import '../../providers/order_provider.dart';
 import 'order_detail_screen.dart';
 import '../pickup/schedule_pickup_screen.dart';
 
@@ -27,12 +28,24 @@ class _OrdersScreenState extends State<OrdersScreen>
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     _load();
+    // React to OrderProvider changes (e.g. cancel from detail screen)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<OrderProvider>().addListener(_syncFromProvider);
+    });
   }
 
   @override
   void dispose() {
+    context.read<OrderProvider>().removeListener(_syncFromProvider);
     _tabs.dispose();
     super.dispose();
+  }
+
+  void _syncFromProvider() {
+    final providerOrders = context.read<OrderProvider>().orders;
+    if (providerOrders.isNotEmpty) {
+      setState(() => _orders = List.from(providerOrders));
+    }
   }
 
   Future<void> _load() async {

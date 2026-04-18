@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
+import '../../providers/notification_provider.dart';
+import '../../providers/order_provider.dart';
 import '../orders/orders_screen.dart';
 
 /// Handles both:
@@ -154,12 +157,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _error = null;
     });
     try {
-      // Backend deducts wallet and marks order as paid
       final result = await ApiService().verifyPayment(
         transactionRef: 'wallet_${widget.order.id}',
         orderId: widget.order.id,
       );
       if (result.success) {
+        // 🔔 Pull fresh notifications (order_confirmed + payment_success will be there)
+        context.read<NotificationProvider>().fetchNotifications();
+        // Refresh order list so the new confirmed order appears immediately
+        context.read<OrderProvider>().load();
         setState(() {
           _processing = false;
           _completed = true;
@@ -185,6 +191,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         transactionRef: ref,
         orderId: widget.order.id,
       );
+      if (result.success) {
+        // 🔔 Pull fresh notifications (order_confirmed + payment_success will be there)
+        context.read<NotificationProvider>().fetchNotifications();
+        context.read<OrderProvider>().load();
+      }
       setState(() {
         _processing = false;
         _completed = result.success;

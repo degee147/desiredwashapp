@@ -7,6 +7,7 @@ import '../../theme/app_colors.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 
@@ -76,6 +77,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   user.copyWith(walletBalance: newBalance),
                 );
           }
+          // 🔔 Pull fresh notifications — wallet_topup will be there
+          context.read<NotificationProvider>().fetchNotifications();
           setState(() => _balance = newBalance);
           _loadData(); // reload transactions too
         },

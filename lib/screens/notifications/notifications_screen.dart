@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../theme/app_colors.dart';
 import '../../models/app_notification.dart';
 import '../../providers/notification_provider.dart';
+import '../orders/order_detail_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -147,8 +148,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           final notif = entry as AppNotification;
           return _NotificationTile(
             notification: notif,
-            onTap: () =>
-                context.read<NotificationProvider>().markRead(notif.id),
+            onTap: () {
+              context.read<NotificationProvider>().markRead(notif.id);
+              // Deep-link to order if the notification carries an order_id
+              if (notif.orderId != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OrderDetailScreen(orderId: notif.orderId!),
+                  ),
+                );
+              }
+            },
           );
         },
       ),

@@ -4,11 +4,13 @@ import '../theme/app_colors.dart';
 import '../widgets/shared_widgets.dart';
 import '../providers/auth_provider.dart';
 import '../providers/order_provider.dart';
+import '../providers/notification_provider.dart';
 import '../models/order.dart';
 import 'pickup/schedule_pickup_screen.dart';
 import 'orders/orders_screen.dart';
 import 'orders/order_detail_screen.dart';
 import 'track_screen.dart';
+import 'notifications/notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<AuthProvider>().refreshProfile();
       final op = context.read<OrderProvider>();
       if (op.orders.isEmpty && !op.loading) op.load();
+      // Sync notification badge count
+      context.read<NotificationProvider>().fetchNotifications();
     });
   }
 
@@ -33,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final orders = context.watch<OrderProvider>();
+    final unreadCount = context.watch<NotificationProvider>().unreadCount;
 
     final hour = DateTime.now().hour;
     final greeting = hour < 12
@@ -70,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Header ──────────────────────────────────────────────────────
-              _buildHeader(context, greeting, user?.name ?? 'there', initials),
+              _buildHeader(context, greeting, user?.name ?? 'there', initials,
+                  unreadCount),
               const SizedBox(height: 24),
 
               // ── Active order banner (real data) ─────────────────────────────
@@ -103,8 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Header ──────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(
-      BuildContext context, String greeting, String name, String initials) {
+  Widget _buildHeader(BuildContext context, String greeting, String name,
+      String initials, int unreadCount) {
     return Row(
       children: [
         Expanded(
@@ -123,6 +129,50 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.darkText)),
             ],
+          ),
+        ),
+        // 🔔 Notification bell with unread badge
+        GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          ),
+          child: Container(
+            width: 48,
+            height: 48,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(Icons.notifications_outlined,
+                      color: AppColors.darkText, size: 22),
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: AppColors.coral,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         GestureDetector(
