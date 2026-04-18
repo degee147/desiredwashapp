@@ -3,13 +3,12 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/shared_widgets.dart';
 import '../providers/auth_provider.dart';
-import '../providers/order_provider.dart';
 import '../providers/notification_provider.dart';
-import '../models/order.dart';
 import '../services/api_service.dart';
 import 'zone/zone_picker_screen.dart';
 import 'notifications/notifications_screen.dart';
 import 'wallet/wallet_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,20 +19,29 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _savingZone = false;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    // Refresh profile so wallet balance, zone, and address are always current
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshProfile();
     });
   }
 
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await context.read<AuthProvider>().refreshProfile();
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final orders = context.watch<OrderProvider>();
     final user = auth.user;
 
     final initials = user != null
@@ -47,25 +55,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : 'U';
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('My Profile',
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.darkText)),
-            const SizedBox(height: 24),
-            _buildProfileHeader(user?.name ?? 'Guest', user?.phone ?? '',
-                initials, user?.walletBalance ?? 0),
-            const SizedBox(height: 28),
-            _buildOrderHistory(context, orders),
-            const SizedBox(height: 28),
-            _buildAccountSettings(context, auth),
-            const SizedBox(height: 32),
-          ],
+      child: RefreshIndicator(
+        color: AppColors.coral,
+        onRefresh: _refresh,
+        child: SingleChildScrollView(
+          // Always scrollable so pull-to-refresh works even if content is short
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header row with title + refresh button ──────────────────────
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('My Profile',
+                        style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.darkText)),
+                  ),
+                  _RefreshButton(
+                    refreshing: _refreshing,
+                    onTap: _refresh,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // ── Profile header with wallet balance ──────────────────────────
+              _buildProfileHeader(context, user?.name ?? 'Guest',
+                  user?.phone ?? '', initials, user?.walletBalance ?? 0),
+              const SizedBox(height: 28),
+
+              // ── Account settings ────────────────────────────────────────────
+              _buildAccountSettings(context, auth),
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -73,8 +100,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Profile header ──────────────────────────────────────────────────────────
 
-  Widget _buildProfileHeader(
-      String name, String phone, String initials, double walletBalance) {
+  Widget _buildProfileHeader(BuildContext context, String name, String phone,
+      String initials, double walletBalance) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -87,20 +114,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.lavender,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(initials,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF7B5EA7),
-                      fontSize: 22)),
-            ),
+          Stack(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.lavender,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(initials,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF7B5EA7),
+                          fontSize: 22)),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen()),
+                  ),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: AppColors.coral,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.edit_rounded,
+                        color: Colors.white, size: 11),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -137,90 +190,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return v.toStringAsFixed(0);
   }
 
-  // ── Order history ───────────────────────────────────────────────────────────
-
-  Widget _buildOrderHistory(BuildContext context, OrderProvider orders) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Order History',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.darkText)),
-        const SizedBox(height: 14),
-        if (orders.loading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: CircularProgressIndicator(color: AppColors.coral),
-            ),
-          )
-        else if (orders.orders.isEmpty)
-          const Text('No orders yet — schedule your first pickup!',
-              style: TextStyle(fontSize: 13, color: AppColors.warmGray))
-        else
-          ...orders.orders.take(3).map((o) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: HistoryCard(
-                  '#${o.id.substring(0, 8).toUpperCase()}',
-                  o.items.isNotEmpty ? o.items.first.serviceName : 'Laundry',
-                  '${o.scheduledPickupDate.day} ${_month(o.scheduledPickupDate.month)}',
-                  '₦${_fmtFull(o.total)}',
-                  _statusLabel(o.status),
-                  _statusColor(o.status),
-                ),
-              )),
-      ],
-    );
-  }
-
-  String _statusLabel(OrderStatus s) {
-    switch (s) {
-      case OrderStatus.delivered:
-        return 'Delivered';
-      case OrderStatus.cancelled:
-        return 'Cancelled';
-      case OrderStatus.pending:
-        return 'Pending';
-      case OrderStatus.confirmed:
-        return 'Confirmed';
-      default:
-        return 'In Progress';
-    }
-  }
-
-  Color _statusColor(OrderStatus s) {
-    switch (s) {
-      case OrderStatus.delivered:
-        return AppColors.mintGreen;
-      case OrderStatus.cancelled:
-        return AppColors.warmGray;
-      default:
-        return AppColors.coral;
-    }
-  }
-
-  String _fmtFull(double v) => v.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-
-  String _month(int m) => const [
-        '',
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ][m];
-
   // ── Account settings ────────────────────────────────────────────────────────
+
   Widget _buildAccountSettings(BuildContext context, AuthProvider auth) {
     final unread = context.watch<NotificationProvider>().unreadCount;
 
@@ -245,6 +216,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             children: [
               GestureDetector(
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen())),
+                child: const SettingRow(
+                    Icons.edit_rounded, 'Edit Profile', AppColors.lavender),
+              ),
+              CardDivider(),
+              GestureDetector(
                 onTap: () => _changeZone(context, auth),
                 child: SettingRow(
                   Icons.location_on_rounded,
@@ -264,7 +244,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Wallet & Payments', AppColors.softBlue),
               ),
               CardDivider(),
-              // ── Notifications row with unread badge ────────────────────────
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
@@ -338,12 +317,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirm == true && mounted) {
       await auth.logout();
-      // _AppGate watches auth state and will redirect to WelcomeScreen
     }
   }
 }
 
-// ── Stat Badge — unchanged ─────────────────────────────────────────────────────
+// ─── REFRESH BUTTON ───────────────────────────────────────────────────────────
+
+class _RefreshButton extends StatelessWidget {
+  final bool refreshing;
+  final VoidCallback onTap;
+
+  const _RefreshButton({required this.refreshing, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: refreshing ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+                color: AppColors.shadow, blurRadius: 8, offset: Offset(0, 2))
+          ],
+        ),
+        child: Center(
+          child: refreshing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      color: AppColors.coral, strokeWidth: 2.2),
+                )
+              : const Icon(Icons.refresh_rounded,
+                  color: AppColors.coral, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── STAT BADGE ───────────────────────────────────────────────────────────────
+
 class StatBadge extends StatelessWidget {
   final String value, label;
   const StatBadge(this.value, this.label, {super.key});
@@ -376,90 +395,13 @@ class StatBadge extends StatelessWidget {
   }
 }
 
-// ── History Card — unchanged ───────────────────────────────────────────────────
-class HistoryCard extends StatelessWidget {
-  final String id, service, date, price, status;
-  final Color statusColor;
+// ─── SETTING ROW ──────────────────────────────────────────────────────────────
 
-  const HistoryCard(this.id, this.service, this.date, this.price, this.status,
-      this.statusColor,
-      {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-              color: AppColors.shadow, blurRadius: 10, offset: Offset(0, 3))
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.cream,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.local_laundry_service_rounded,
-                color: AppColors.coral, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(service,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: AppColors.darkText)),
-                Text('$id • $date',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.warmGray)),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(price,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: AppColors.darkText)),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(status,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2E7D60))),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Setting Row — unchanged ────────────────────────────────────────────────────
 class SettingRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color iconBg;
-  final int? badge; // unread count — null = no badge
+  final int? badge;
 
   const SettingRow(this.icon, this.label, this.iconBg, {super.key, this.badge});
 

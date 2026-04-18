@@ -6,6 +6,7 @@ import '../models/order.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../models/app_notification.dart';
+import '../models/pay_order_result.dart';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -255,6 +256,21 @@ class ApiService {
     return PickupOrder.fromJson(data['order']);
   }
 
+  /// POST /orders/:id/pay
+  Future<PayOrderResult> payOrder({
+    required String orderId,
+    required PaymentMethod method,
+  }) async {
+    final res = await _post(
+      '/orders/$orderId/pay',
+      {
+        'payment_method': method == PaymentMethod.wallet ? 'wallet' : 'card',
+      },
+    );
+
+    return PayOrderResult.fromJson(res);
+  }
+
   /// POST /orders/:id/cancel
   Future<void> cancelOrder(String orderId) async {
     await _post('/orders/$orderId/cancel', {});
@@ -282,6 +298,12 @@ class ApiService {
   Future<double> getWalletBalance() async {
     final data = await _get('/wallet/balance');
     return (data['balance'] as num).toDouble();
+  }
+
+  /// GET /options
+  Future<double> getSystemOptions() async {
+    final data = await _get('/options');
+    return (data['phone'] as num).toDouble();
   }
 
   /// POST /wallet/topup

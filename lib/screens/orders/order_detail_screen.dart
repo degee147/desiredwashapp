@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import '../../theme/app_colors.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/order_provider.dart';
 
@@ -19,7 +21,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   PickupOrder? _order;
   bool _loading = true;
   bool _cancelling = false;
+  bool _paying = false;
   String? _error;
+
+  PaymentMethod _selectedPaymentMethod = PaymentMethod.card;
 
   final fmt = NumberFormat('#,###');
 
@@ -74,10 +79,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       await context.read<ApiService>().cancelOrder(widget.orderId);
 
-      // Refresh order state in provider so Orders list updates
       context.read<OrderProvider>().refreshOrder(widget.orderId);
-
-      // Pull fresh notifications so the cancellation notice appears immediately
       context.read<NotificationProvider>().fetchNotifications();
 
       await _load();
@@ -141,6 +143,116 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  Future<void> _showPaySheet() async {
+    final order = _order!;
+    final user = context.read<AuthProvider>().user;
+    final walletBalance = user?.walletBalance ?? 0;
+    final walletOk = walletBalance >= order.total;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PayBottomSheet(
+        total: order.total,
+        walletBalance: walletBalance,
+        walletOk: walletOk,
+        initialMethod: _selectedPaymentMethod,
+        onPay: (method) async {
+          Navigator.pop(context);
+          setState(() => _selectedPaymentMethod = method);
+          await _processPayment(method);
+        },
+      ),
+    );
+  }
+
+  Future<void> _processPayment(PaymentMethod method) async {
+    final order = _order!;
+    setState(() => _paying = true);
+
+    try {
+      final result = await context.read<ApiService>().payOrder(
+            orderId: order.id,
+            method: method,
+          );
+
+      if (!mounted) return;
+
+      if (method == PaymentMethod.wallet) {
+        // Wallet: paid immediately — refresh balance + order
+        context.read<AuthProvider>().refreshProfile();
+        context.read<OrderProvider>().refreshOrder(order.id);
+        setState(() {
+          _order = result.order;
+          _paying = false;
+        });
+        _showSuccessSnack(
+            'Payment successful! ₦${fmt.format(order.total)} deducted from wallet.');
+      } else {
+        // Card: open Flutterwave WebView
+        setState(() => _paying = false);
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _FlutterwavePaymentScreen(
+              order: order,
+              paymentLink: result.paymentLink!,
+              onSuccess: () async {
+                if (mounted)
+                  context.read<OrderProvider>().refreshOrder(order.id);
+                await _load();
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _paying = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSuccessSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E7D60),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(message,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -180,6 +292,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final order = _order!;
     final canCancel =
         [OrderStatus.pending, OrderStatus.confirmed].contains(order.status);
+    final needsPayment = order.paymentStatus == PaymentStatus.pending &&
+        order.status != OrderStatus.cancelled;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -209,6 +323,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Payment pending banner ────────────────────────────────────────
+            if (needsPayment) ...[
+              _PaymentPendingBanner(
+                total: order.total,
+                fmt: fmt,
+                onPay: _paying ? null : _showPaySheet,
+                paying: _paying,
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Status timeline
             _Section(
               title: 'Order Status',
@@ -374,28 +499,55 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
 
-            if (canCancel) ...[
+            // ── Action buttons ────────────────────────────────────────────────
+            if (needsPayment || canCancel) ...[
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton(
-                  onPressed: _cancelling ? null : _cancel,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.red.shade300),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+              if (needsPayment)
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _paying ? null : _showPaySheet,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.coral,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: _paying
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2.5))
+                        : Text('Pay ₦${fmt.format(order.total)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 16)),
                   ),
-                  child: _cancelling
-                      ? const CircularProgressIndicator(
-                          color: Colors.red, strokeWidth: 2)
-                      : const Text('Cancel Order',
-                          style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15)),
                 ),
-              ),
+              if (needsPayment && canCancel) const SizedBox(height: 12),
+              if (canCancel)
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: _cancelling ? null : _cancel,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.red.shade300),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: _cancelling
+                        ? const CircularProgressIndicator(
+                            color: Colors.red, strokeWidth: 2)
+                        : const Text('Cancel Order',
+                            style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15)),
+                  ),
+                ),
             ],
             const SizedBox(height: 32),
           ],
@@ -411,6 +563,450 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case PaymentMethod.wallet:
         return 'Wallet Balance';
     }
+  }
+}
+
+// ─── PAYMENT PENDING BANNER ───────────────────────────────────────────────────
+
+class _PaymentPendingBanner extends StatelessWidget {
+  final double total;
+  final NumberFormat fmt;
+  final VoidCallback? onPay;
+  final bool paying;
+
+  const _PaymentPendingBanner({
+    required this.total,
+    required this.fmt,
+    required this.onPay,
+    required this.paying,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFB74D), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9800).withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.payment_rounded,
+                color: Color(0xFFE65100), size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Payment Pending',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Color(0xFFE65100))),
+                SizedBox(height: 2),
+                Text('Complete payment to confirm your order.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF795548))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onPay,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF9800),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: paying
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('Pay Now',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── PAY BOTTOM SHEET ─────────────────────────────────────────────────────────
+
+class _PayBottomSheet extends StatefulWidget {
+  final double total;
+  final double walletBalance;
+  final bool walletOk;
+  final PaymentMethod initialMethod;
+  final void Function(PaymentMethod) onPay;
+
+  const _PayBottomSheet({
+    required this.total,
+    required this.walletBalance,
+    required this.walletOk,
+    required this.initialMethod,
+    required this.onPay,
+  });
+
+  @override
+  State<_PayBottomSheet> createState() => _PayBottomSheetState();
+}
+
+class _PayBottomSheetState extends State<_PayBottomSheet> {
+  late PaymentMethod _selected;
+  final fmt = NumberFormat('#,###');
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.walletOk ? PaymentMethod.wallet : PaymentMethod.card;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text('Choose Payment Method',
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.darkText)),
+          const SizedBox(height: 6),
+          Text('Total: ₦${fmt.format(widget.total)}',
+              style: const TextStyle(fontSize: 13, color: AppColors.warmGray)),
+          const SizedBox(height: 20),
+
+          // Card option
+          _MethodTile(
+            icon: Icons.credit_card_rounded,
+            iconBg: const Color(0xFFE3F2FD),
+            iconColor: const Color(0xFF1976D2),
+            title: 'Pay by Card',
+            subtitle: 'Powered by Flutterwave',
+            method: PaymentMethod.card,
+            selected: _selected,
+            enabled: true,
+            onTap: () => setState(() => _selected = PaymentMethod.card),
+          ),
+          const SizedBox(height: 10),
+
+          // Wallet option
+          _MethodTile(
+            icon: Icons.account_balance_wallet_rounded,
+            iconBg: const Color(0xFFE8F5E9),
+            iconColor: const Color(0xFF2E7D32),
+            title: 'Pay with Wallet',
+            subtitle: widget.walletOk
+                ? '₦${fmt.format(widget.walletBalance)} available'
+                : '₦${fmt.format(widget.walletBalance)} — insufficient (need ₦${fmt.format(widget.total)})',
+            subtitleColor: widget.walletOk ? null : Colors.red.shade400,
+            method: PaymentMethod.wallet,
+            selected: _selected,
+            enabled: widget.walletOk,
+            onTap: widget.walletOk
+                ? () => setState(() => _selected = PaymentMethod.wallet)
+                : null,
+          ),
+          const SizedBox(height: 24),
+
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () => widget.onPay(_selected),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.coral,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text(
+                _selected == PaymentMethod.wallet
+                    ? 'Pay ₦${fmt.format(widget.total)} from Wallet'
+                    : 'Continue to Card Payment',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final Color? subtitleColor;
+  final PaymentMethod method;
+  final PaymentMethod selected;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _MethodTile({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.subtitleColor,
+    required this.method,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = selected == method;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.coral.withOpacity(0.05)
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.coral : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                  color: enabled ? iconBg : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon,
+                  color: enabled ? iconColor : Colors.grey.shade400, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: enabled
+                              ? AppColors.darkText
+                              : Colors.grey.shade400)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: subtitleColor ??
+                              (enabled
+                                  ? AppColors.warmGray
+                                  : Colors.grey.shade400))),
+                ],
+              ),
+            ),
+            Radio<PaymentMethod>(
+              value: method,
+              groupValue: selected,
+              onChanged: enabled ? (_) => onTap?.call() : null,
+              activeColor: AppColors.coral,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── FLUTTERWAVE PAYMENT WEBVIEW ──────────────────────────────────────────────
+
+class _FlutterwavePaymentScreen extends StatefulWidget {
+  final PickupOrder order;
+  final String paymentLink;
+  final Future<void> Function()? onSuccess;
+
+  const _FlutterwavePaymentScreen({
+    required this.order,
+    required this.paymentLink,
+    this.onSuccess,
+  });
+
+  @override
+  State<_FlutterwavePaymentScreen> createState() =>
+      _FlutterwavePaymentScreenState();
+}
+
+class _FlutterwavePaymentScreenState extends State<_FlutterwavePaymentScreen> {
+  late final WebViewController _controller;
+  bool _verifying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onNavigationRequest: (req) {
+          final url = req.url;
+          debugPrint('🌐 WebView navigating to: $url');
+
+          if (url.contains('status=successful') ||
+              url.contains('status=completed')) {
+            final uri = Uri.parse(url);
+            final txRef = uri.queryParameters['tx_ref'] ??
+                uri.queryParameters['transaction_id'] ??
+                '';
+            _onPaymentSuccess(txRef);
+            return NavigationDecision.prevent;
+          }
+
+          if (url.contains('status=cancelled') ||
+              url.contains('status=failed')) {
+            _onPaymentCancelled();
+            return NavigationDecision.prevent;
+          }
+
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(widget.paymentLink));
+  }
+
+  Future<void> _onPaymentSuccess(String txRef) async {
+    if (_verifying) return;
+    setState(() => _verifying = true);
+
+    try {
+      await context.read<ApiService>().verifyPayment(
+            transactionRef: txRef,
+            orderId: widget.order.id,
+          );
+
+      await widget.onSuccess?.call();
+
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment verification failed: $e'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    }
+  }
+
+  void _onPaymentCancelled() {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment was cancelled.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: AppColors.darkText),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Cancel Payment?'),
+                content: const Text(
+                    'Payment is incomplete. You can pay later from your order details.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Continue Paying'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pop(context);
+                    },
+                    child: Text('Leave',
+                        style: TextStyle(color: Colors.red.shade600)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        title: const Text('Complete Payment',
+            style: TextStyle(
+                color: AppColors.darkText, fontWeight: FontWeight.w700)),
+        centerTitle: true,
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_verifying)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: AppColors.coral),
+                    SizedBox(height: 16),
+                    Text('Verifying payment…',
+                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
