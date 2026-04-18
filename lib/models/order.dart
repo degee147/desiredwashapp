@@ -17,12 +17,14 @@ enum PaymentStatus { pending, success, failed }
 class LaundryService {
   final int id;
   final String name;
+  final String description;
   final String emoji;
   final double price;
 
   const LaundryService({
     required this.id,
     required this.name,
+    required this.description,
     required this.emoji,
     required this.price,
   });
@@ -30,6 +32,7 @@ class LaundryService {
   factory LaundryService.fromJson(Map<String, dynamic> json) => LaundryService(
         id: json['id'] as int,
         name: json['name'] as String,
+        description: json['description']?.toString() ?? '',
         emoji: json['emoji'] as String,
         price: double.parse(json['price'].toString()),
       );

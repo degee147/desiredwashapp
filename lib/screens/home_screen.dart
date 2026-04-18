@@ -79,22 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   unreadCount),
               const SizedBox(height: 24),
 
-              // ── Active order banner (real data) ─────────────────────────────
+              // ── Active order banner (shown when there is an active order) ───
               if (activeOrder != null) ...[
                 _buildActiveBanner(context, activeOrder),
-                const SizedBox(height: 28),
-              ] else ...[
-                // No active order — show schedule CTA card instead
-                _buildScheduleCta(context),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
               ],
 
-              // ── Services grid ───────────────────────────────────────────────
-              _buildServicesGrid(context),
-              const SizedBox(height: 28),
-
-              // ── Promo ───────────────────────────────────────────────────────
-              _buildPromo(),
+              // ── Single "Create Order" CTA button ────────────────────────────
+              _buildCreateOrderButton(context),
               const SizedBox(height: 28),
 
               // ── Recent orders ───────────────────────────────────────────────
@@ -293,146 +285,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ── Schedule CTA (shown when no active order) ───────────────────────────────
+  // ── Create Order button ──────────────────────────────────────────────────────
 
-  Widget _buildScheduleCta(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const SchedulePickupScreen())),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF7D5C), Color(0xFFFFB085)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-                color: AppColors.coral.withOpacity(0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 8)),
-          ],
+  Widget _buildCreateOrderButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SchedulePickupScreen()),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Ready for fresh laundry?',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  Text('Schedule a pickup and we\'ll handle the rest.',
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.85), fontSize: 13)),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Text('Schedule Now',
-                        style: TextStyle(
-                            color: AppColors.coral,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14)),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.25),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.local_laundry_service_rounded,
-                  color: Colors.white, size: 28),
-            ),
-          ],
+        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+        label: const Text(
+          'Create Order',
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
         ),
-      ),
-    );
-  }
-
-  // ── Services grid ────────────────────────────────────────────────────────────
-
-  Widget _buildServicesGrid(BuildContext context) {
-    final services = [
-      ('Wash & Fold', Icons.water_drop_rounded, AppColors.softBlue),
-      ('Dry Clean', Icons.dry_cleaning_rounded, AppColors.lavender),
-      ('Iron Only', Icons.iron_rounded, AppColors.mintGreen),
-      ('Express', Icons.bolt_rounded, AppColors.cream),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Our Services',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.darkText)),
-        const SizedBox(height: 14),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 1.3,
-          children: services
-              .map((s) => GestureDetector(
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SchedulePickupScreen())),
-                    child: ServiceCard(label: s.$1, icon: s.$2, bgColor: s.$3),
-                  ))
-              .toList(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.coral,
+          elevation: 0,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-      ],
-    );
-  }
-
-  // ── Promo ────────────────────────────────────────────────────────────────────
-
-  Widget _buildPromo() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.mintGreen.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.mintGreen, width: 1.5),
-      ),
-      child: const Row(
-        children: [
-          Text('🎉', style: TextStyle(fontSize: 36)),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('First Order Free!',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: AppColors.darkText)),
-                SizedBox(height: 4),
-                Text('Use code BUBBLY25 for 25% off your next order',
-                    style: TextStyle(fontSize: 12, color: AppColors.warmGray)),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -572,41 +447,5 @@ class _HomeScreenState extends State<HomeScreen> {
       'Dec'
     ];
     return '${months[d.month]} ${d.day}';
-  }
-}
-
-// ── ServiceCard — same visual as original, kept here ─────────────────────────
-class ServiceCard extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color bgColor;
-
-  const ServiceCard(
-      {super.key,
-      required this.label,
-      required this.icon,
-      required this.bgColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, color: AppColors.darkText.withOpacity(0.75), size: 28),
-          Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: AppColors.darkText)),
-        ],
-      ),
-    );
   }
 }

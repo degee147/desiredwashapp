@@ -300,10 +300,10 @@ class ApiService {
     return (data['balance'] as num).toDouble();
   }
 
-  /// GET /options
-  Future<double> getSystemOptions() async {
+  /// GET /options — returns the admin contact phone number
+  Future<String> getContactPhone() async {
     final data = await _get('/options');
-    return (data['phone'] as num).toDouble();
+    return data['phone'].toString();
   }
 
   /// POST /wallet/topup

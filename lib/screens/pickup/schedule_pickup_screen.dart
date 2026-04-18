@@ -726,8 +726,13 @@ class _ServiceRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(item.service.emoji, style: const TextStyle(fontSize: 22)),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(item.service.emoji,
+                  style: const TextStyle(fontSize: 22)),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -742,9 +747,20 @@ class _ServiceRow extends StatelessWidget {
                       '₦${NumberFormat('#,###').format(item.service.price)}/item',
                       style: const TextStyle(
                           color: AppColors.warmGray, fontSize: 12)),
+                  if (item.service.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.service.description,
+                      style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 11.5,
+                          height: 1.4),
+                    ),
+                  ],
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             _Counter(
                 count: item.quantity,
                 onIncrement: onIncrement,

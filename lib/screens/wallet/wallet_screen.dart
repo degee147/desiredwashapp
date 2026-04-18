@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_colors.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
@@ -25,6 +26,7 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _loading = true;
   String? _error;
   bool _balanceVisible = true;
+  String? _contactPhone;
 
   @override
   void initState() {
@@ -39,9 +41,15 @@ class _WalletScreenState extends State<WalletScreen> {
     });
     try {
       final api = ApiService();
-      final balance = await api.getWalletBalance();
-      final txns = await api.getWalletTransactions();
+      final results = await Future.wait([
+        api.getWalletBalance(),
+        api.getWalletTransactions(),
+        api.getContactPhone(),
+      ]);
       if (!mounted) return;
+      final balance = results[0] as double;
+      final txns = results[1] as List<WalletTransaction>;
+      final phone = results[2] as String;
       // Sync balance into AuthProvider so other screens see it too
       final user = context.read<AuthProvider>().user;
       if (user != null) {
@@ -52,6 +60,7 @@ class _WalletScreenState extends State<WalletScreen> {
       setState(() {
         _balance = balance;
         _transactions = txns;
+        _contactPhone = phone;
         _loading = false;
       });
     } catch (e) {
@@ -84,6 +93,23 @@ class _WalletScreenState extends State<WalletScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _callToFund() async {
+    final phone = _contactPhone;
+    if (phone == null || phone.isEmpty) return;
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not launch dialer for $phone'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -182,25 +208,63 @@ class _WalletScreenState extends State<WalletScreen> {
                                     fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 44,
-                                child: ElevatedButton.icon(
-                                  onPressed: _showTopupSheet,
-                                  icon: const Icon(Icons.add_rounded,
-                                      color: AppColors.coral),
-                                  label: const Text('Top Up Wallet',
-                                      style: TextStyle(
-                                          color: AppColors.coral,
-                                          fontWeight: FontWeight.w700)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    elevation: 0,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 44,
+                                      child: ElevatedButton.icon(
+                                        onPressed: _showTopupSheet,
+                                        icon: const Icon(Icons.add_rounded,
+                                            color: AppColors.coral, size: 18),
+                                        label: const Text('Top Up',
+                                            style: TextStyle(
+                                                color: AppColors.coral,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 44,
+                                      child: ElevatedButton.icon(
+                                        onPressed: _contactPhone != null
+                                            ? _callToFund
+                                            : null,
+                                        icon: const Icon(Icons.phone_rounded,
+                                            color: Colors.white, size: 18),
+                                        label: const Text('Call to Fund',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              Colors.white.withOpacity(0.25),
+                                          disabledBackgroundColor:
+                                              Colors.white.withOpacity(0.1),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            side: const BorderSide(
+                                                color: Colors.white54,
+                                                width: 1.5),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
